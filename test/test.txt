@@ -1,0 +1,582 @@
+diff --git a/hello.php b/hello.php
+index a37da1e..04cddb4 100644
+--- a/hello.php
++++ b/hello.php
+@@ -242,6 +242,34 @@ class ApiStatisticController extends Controller
+             //  $ret = (new BStatDrivingCompare([], $request))->driverActionDetail($this->params);
+         }
+         $ret = $this->driverActionDetailByDate($this->params);
++        $sql = "  SELECT TYPE,type_desc,GROUP_CONCAT( remark ORDER BY orderid ASC)AS remark  FROM(
++       SELECT TYPE,type_desc,tmp.parameter,CONCAT(remark,unit)AS remark ,orderid FROM (
++           SELECT a.type,a.`type_desc`,parameter,CONCAT(remark,para_value)AS remark,
++                  (CASE parameter WHEN \"min_engine_speed\" THEN 1 WHEN \"max_engine_speed\" THEN 2 WHEN \"time_interval\" THEN 3 WHEN \"speed\" THEN 4 
++                   WHEN \"va_speed\" THEN 5 WHEN \"engine_speed\" THEN 6 WHEN \"score\"THEN 7  ELSE 8 END)AS orderid
++           FROM stat_drivingconfig_new a INNER JOIN  driving_violation_type_new b ON a.type=b.violationename AND b.`deptid`=a.`dept_id` WHERE  VERSION=1  AND dept_id=-1 
++           )tmp INNER JOIN violationTypeunit ON tmp.parameter=violationTypeunit.`parameter`
++       )t GROUP BY type_desc ";
++        $info = DB::select($sql);
++        $remarkInfo = array();
++        foreach ($info as $key => $item) {
++            $remarkInfo[$item->type_desc] = $item->remark;
++        }
++
++        foreach ($ret as $key => $item) {
++            if(count($item)>1){
++                foreach ($item as $idx => $value) {
++                    $actiontypeDesc = $value->actiontypeDesc;
++                    $remark = $remarkInfo[$actiontypeDesc];
++                    if(!isset($remark)){
++                        $remark="暂无评述";
++                    }
++                    $value->remark=$remark;
++                }
++            }
++
++        }
++
+         return $this->setJsonResponse(SUCCESS, $ret);
+     }
+ 
+@@ -811,7 +839,7 @@ class ApiStatisticController extends Controller
+             `stat_driving_violation_day`.`actionType` AS `actionType`,
+             sum(`stat_driving_violation_day`.`totalNum`) AS `totalNum`
+               ";
+-       // select driverId from v_driverinfo where 1=1 and lineName= 'B1号线'
++        // select driverId from v_driverinfo where 1=1 and lineName= 'B1号线'
+         //20190508修改
+         $driverId = (new DStatDrivingViolationSummaryForBeiJingByDay())
+             ->selectRaw('stat_driving_violation_day.driverId as driverId ,stat_driving_violation_day.driverName as driverName,stat_driving_violation_day.deviceId as deviceId,sum(stat_driving_violation_day.totalNum) as scores')
+@@ -962,7 +990,7 @@ class ApiStatisticController extends Controller
+ //        where driving_violation_type_new.deptid='$userid' and v_driverinfo.";
+ //        $sql .= $key . "='$val'";
+         $sql = "select violationeName from driving_violation_type_new  where deptid='$userid' ";
+-        if($param['violationType']&&$param['violationType']<>-1){
++        if ($param['violationType'] && $param['violationType'] <> -1) {
+             switch ($param['violationType']) {
+                 case 1:
+                     //badserviceType
+@@ -3755,8 +3783,8 @@ left join t_alarmlevelinfo b on d. companyDeptId=b.deptId and d.alarmname=b.alar
+                 }
+                 $sql .= " and  t_alarmsummary.$key = '$val' ";
+             }
+-            if($key=='subCompanyName'||$key=='groupName'||$key=='lineName'){
+-                $companyName=DB::table("t_mauth_dept")->selectRaw("companyName")->where($key,'=',$val)->first();
++            if ($key == 'subCompanyName' || $key == 'groupName' || $key == 'lineName') {
++                $companyName = DB::table("t_mauth_dept")->selectRaw("companyName")->where($key, '=', $val)->first();
+                 $sql .= " and  t_alarmsummary.companyName = '$companyName->companyName' ";
+             }
+         }
+@@ -4496,8 +4524,8 @@ left join t_alarmlevelinfo b on d. companyDeptId=b.deptId and d.alarmname=b.alar
+         }
+         $driverName = $params['driverName'];
+         $deptId = $params['deptId'];
+-       // $userdeptid = $this->getUserIdViolationType();
+-        $userdeptid=DB::table("v_lineinfo")->where('lineDeptId',"=",$deptId)->select("companyDeptId")->first()->companyDeptId;
++        // $userdeptid = $this->getUserIdViolationType();
++        $userdeptid = DB::table("v_lineinfo")->where('lineDeptId', "=", $deptId)->select("companyDeptId")->first()->companyDeptId;
+ 
+         $sql = " FROM (
+ SELECT actiontypeDesc,SUM(total) AS total  FROM api_violation WHERE driverName='$driverName' and deptId='$deptId' AND $dataconditon GROUP BY actiontypeDesc)a INNER JOIN 
+@@ -4791,7 +4819,7 @@ join (select driverid from v_driverinfo   ";
+         $endDay = $timeArr['endDay'];
+         //获取用户id
+         //$userdeptid = $this->getUserIdViolationType();
+-        $userdeptid=DB::table("v_lineinfo")->where($depttype,"=",$deptid)->select("companyDeptId")->first()->companyDeptId;
++        $userdeptid = DB::table("v_lineinfo")->where($depttype, "=", $deptid)->select("companyDeptId")->first()->companyDeptId;
+ 
+         //获取违规类型
+         $dangerData = DB::table('driving_violation_type_new')
+@@ -4814,7 +4842,7 @@ join (select driverid from v_driverinfo   ";
+         if ($datatype == 0) {
+             $data = DB::table('stat_driving_violation_detail as sdvd')
+                 ->where('sdvd.stat_date', '=', $startDay)
+-                ->where($depttype,'=',$deptid)
++                ->where($depttype, '=', $deptid)
+                 ->whereIn('actiontype', $dangerDataArr)
+                 ->whereIn('sdvd.driverId', $driverId)
+                 ->groupBy('sdvd.driverId')
+@@ -4824,8 +4852,8 @@ join (select driverid from v_driverinfo   ";
+         } else if ($datatype == 1 || $datatype == 2 || $datatype == 3) {
+             //当页面选中为timeType=1,2,3，数据从stat_driving_violation_day统计
+             $data = DB::table('stat_driving_violation_day as sdvd')
+-                ->join('t_mauth_dept','t_mauth_dept.lineDeptId','=','sdvd.lineId')
+-                ->where($depttype,'=',$deptid)
++                ->join('t_mauth_dept', 't_mauth_dept.lineDeptId', '=', 'sdvd.lineId')
++                ->where($depttype, '=', $deptid)
+                 ->whereRaw('sdvd.stat_date>=? and sdvd.stat_date<=?', [$startDay, $endDay])
+                 ->whereIn('sdvd.actiontype', $dangerDataArr)
+                 ->whereIn('sdvd.driverId', $driverId)
+@@ -4835,8 +4863,8 @@ join (select driverid from v_driverinfo   ";
+                 ->paginate($count);
+         } else if ($datatype == 4 || $datatype == 5) {
+             $data = DB::table('stat_driving_violation_summary as sdvd')
+-                ->join('t_mauth_dept','t_mauth_dept.lineDeptId','=','sdvd.lineId')
+-                ->where($depttype,'=',$deptid)
++                ->join('t_mauth_dept', 't_mauth_dept.lineDeptId', '=', 'sdvd.lineId')
++                ->where($depttype, '=', $deptid)
+                 ->whereRaw('sdvd.stat_date>=? and sdvd.stat_date<=?', [$startDay, $endDay])
+                 ->whereIn('sdvd.actiontype', $dangerDataArr)
+                 ->whereIn('sdvd.driverId', $driverId)
+@@ -4903,8 +4931,8 @@ join (select driverid from v_driverinfo   ";
+         $startDay = $timeArr['startDay'];
+         $endDay = $timeArr['endDay'];
+         //获取用户id
+-       // $userdeptid = $this->getUserIdViolationType();
+-        $userdeptid=DB::table("v_lineinfo")->where($depttype,"=",$deptid)->select("companyDeptId")->first()->companyDeptId;
++        // $userdeptid = $this->getUserIdViolationType();
++        $userdeptid = DB::table("v_lineinfo")->where($depttype, "=", $deptid)->select("companyDeptId")->first()->companyDeptId;
+ 
+         //获取违规类型
+         $dangerData = DB::table('driving_violation_type_new')
+@@ -4927,7 +4955,7 @@ join (select driverid from v_driverinfo   ";
+         if ($datatype == 0) {
+             $data = DB::table('stat_driving_violation_detail as sdvd')
+                 ->where('sdvd.stat_date', '=', $startDay)
+-                ->where($depttype,'=',$deptid)
++                ->where($depttype, '=', $deptid)
+                 ->whereIn('actiontype', $dangerDataArr)
+                 ->whereIn('sdvd.driverId', $driverId)
+                 ->groupBy('sdvd.driverId')
+@@ -4937,8 +4965,8 @@ join (select driverid from v_driverinfo   ";
+         } else if ($datatype == 1 || $datatype == 2 || $datatype == 3) {
+             //当页面选中为timeType=1,2,3，数据从stat_driving_violation_day统计
+             $data = DB::table('stat_driving_violation_day as sdvd')
+-                ->join('t_mauth_dept','t_mauth_dept.lineDeptId','=','sdvd.lineId')
+-                ->where($depttype,'=',$deptid)
++                ->join('t_mauth_dept', 't_mauth_dept.lineDeptId', '=', 'sdvd.lineId')
++                ->where($depttype, '=', $deptid)
+                 ->whereRaw('sdvd.stat_date>=? and sdvd.stat_date<=?', [$startDay, $endDay])
+                 ->whereIn('sdvd.actiontype', $dangerDataArr)
+                 ->whereIn('sdvd.driverId', $driverId)
+@@ -4948,8 +4976,8 @@ join (select driverid from v_driverinfo   ";
+                 ->paginate($count);
+         } else if ($datatype == 4 || $datatype == 5) {
+             $data = DB::table('stat_driving_violation_summary as sdvd')
+-                ->join('t_mauth_dept','t_mauth_dept.lineDeptId','=','sdvd.lineId')
+-                ->where($depttype,'=',$deptid)
++                ->join('t_mauth_dept', 't_mauth_dept.lineDeptId', '=', 'sdvd.lineId')
++                ->where($depttype, '=', $deptid)
+                 ->whereRaw('sdvd.stat_date>=? and sdvd.stat_date<=?', [$startDay, $endDay])
+                 ->whereIn('sdvd.actiontype', $dangerDataArr)
+                 ->whereIn('sdvd.driverId', $driverId)
+@@ -5017,7 +5045,7 @@ join (select driverid from v_driverinfo   ";
+         $endDay = $timeArr['endDay'];
+         //获取用户id
+         //$userdeptid = $this->getUserIdViolationType();
+-        $userdeptid=DB::table("v_lineinfo")->where($depttype,"=",$deptid)->select("companyDeptId")->first()->companyDeptId;
++        $userdeptid = DB::table("v_lineinfo")->where($depttype, "=", $deptid)->select("companyDeptId")->first()->companyDeptId;
+ 
+         //获取违规类型
+         $dangerData = DB::table('driving_violation_type_new')
+@@ -5040,7 +5068,7 @@ join (select driverid from v_driverinfo   ";
+         if ($datatype == 0) {
+             $data = DB::table('stat_driving_violation_detail as sdvd')
+                 ->where('sdvd.stat_date', '=', $startDay)
+-                ->where($depttype,'=',$deptid)
++                ->where($depttype, '=', $deptid)
+                 ->whereIn('actiontype', $dangerDataArr)
+                 ->whereIn('sdvd.driverId', $driverId)
+                 ->groupBy('sdvd.driverId')
+@@ -5050,8 +5078,8 @@ join (select driverid from v_driverinfo   ";
+         } else if ($datatype == 1 || $datatype == 2 || $datatype == 3) {
+             //当页面选中为timeType=1,2,3，数据从stat_driving_violation_day统计
+             $data = DB::table('stat_driving_violation_day as sdvd')
+-                ->join('t_mauth_dept','t_mauth_dept.lineDeptId','=','sdvd.lineId')
+-                ->where($depttype,'=',$deptid)
++                ->join('t_mauth_dept', 't_mauth_dept.lineDeptId', '=', 'sdvd.lineId')
++                ->where($depttype, '=', $deptid)
+                 ->whereRaw('sdvd.stat_date>=? and sdvd.stat_date<=?', [$startDay, $endDay])
+                 ->whereIn('sdvd.actiontype', $dangerDataArr)
+                 ->whereIn('sdvd.driverId', $driverId)
+@@ -5061,8 +5089,8 @@ join (select driverid from v_driverinfo   ";
+                 ->paginate($count);
+         } else if ($datatype == 4 || $datatype == 5) {
+             $data = DB::table('stat_driving_violation_summary as sdvd')
+-                ->join('t_mauth_dept','t_mauth_dept.lineDeptId','=','sdvd.lineId')
+-                ->where($depttype,'=',$deptid)
++                ->join('t_mauth_dept', 't_mauth_dept.lineDeptId', '=', 'sdvd.lineId')
++                ->where($depttype, '=', $deptid)
+                 ->whereRaw('sdvd.stat_date>=? and sdvd.stat_date<=?', [$startDay, $endDay])
+                 ->whereIn('sdvd.actiontype', $dangerDataArr)
+                 ->whereIn('sdvd.driverId', $driverId)
+@@ -5235,7 +5263,7 @@ join (select driverid from v_driverinfo   ";
+                 break;
+         }
+         // $userdeptid = $this->getUserIdViolationType();
+-        $userdeptid=DB::table("v_lineinfo")->where($depttype,"=",$deptid)->select("companyDeptId")->first()->companyDeptId;
++        $userdeptid = DB::table("v_lineinfo")->where($depttype, "=", $deptid)->select("companyDeptId")->first()->companyDeptId;
+ 
+         //获取时间数组
+         $timeDay = $this->timeTypeConversion($timeType);
+@@ -5288,7 +5316,7 @@ join (select driverid from v_driverinfo   ";
+                 $take = $data['top'];
+             }
+             $vioTypeTop = DB::table('stat_driving_violation_detail')
+-                ->where($depttype,'=',$deptid);
++                ->where($depttype, '=', $deptid);
+             if (isset($data['driverId'])) {
+                 $vioTypeTop = $vioTypeTop->whereIn('driverId', $data['driverId']);
+             } else {
+@@ -5311,7 +5339,7 @@ join (select driverid from v_driverinfo   ";
+             }
+ 
+             $vioData = DB::table('stat_driving_violation_detail')
+-                ->where($depttype,'=',$deptid);
++                ->where($depttype, '=', $deptid);
+             $vioData = $vioData->whereIn('actiontype', $vioTypeTopVal);
+             $vioData = $vioData->where('stat_date', '=', $startDay);
+             if (isset($data['driverId'])) {
+@@ -5361,8 +5389,8 @@ join (select driverid from v_driverinfo   ";
+                 $take = $data['top'];
+             }
+             $vioTypeTop = DB::table('stat_driving_violation_day')
+-                ->join('t_mauth_dept','stat_driving_violation_day.lineId','=','t_mauth_dept.lineDeptId')
+-                ->where($depttype,'=',$deptid);
++                ->join('t_mauth_dept', 'stat_driving_violation_day.lineId', '=', 't_mauth_dept.lineDeptId')
++                ->where($depttype, '=', $deptid);
+             if (isset($data['driverId'])) {
+                 $vioTypeTop = $vioTypeTop->whereIn('driverId', $data['driverId']);
+             } else {
+@@ -5385,8 +5413,8 @@ join (select driverid from v_driverinfo   ";
+                 $vioTypeTopVal[] = $vioTypeTop[$i]->actiontype;
+             }
+             $vioData = DB::table('stat_driving_violation_day')
+-                ->join('t_mauth_dept','stat_driving_violation_day.lineId','=','t_mauth_dept.lineDeptId')
+-                ->where($depttype,'=',$deptid);
++                ->join('t_mauth_dept', 'stat_driving_violation_day.lineId', '=', 't_mauth_dept.lineDeptId')
++                ->where($depttype, '=', $deptid);
+             $vioData = $vioData->whereIn('actionType', $vioTypeTopVal);
+             if (isset($data['driverId'])) {
+                 $vioData = $vioData->whereIn('driverId', $data['driverId']);
+@@ -5436,8 +5464,8 @@ join (select driverid from v_driverinfo   ";
+                 $take = $data['top'];
+             }
+             $vioTypeTop = DB::table('stat_driving_violation_summary')
+-                ->join('t_mauth_dept','stat_driving_violation_summary.lineId','=','t_mauth_dept.lineDeptId')
+-                ->where($depttype,'=',$deptid);
++                ->join('t_mauth_dept', 'stat_driving_violation_summary.lineId', '=', 't_mauth_dept.lineDeptId')
++                ->where($depttype, '=', $deptid);
+             $vioTypeTop = $vioTypeTop->whereIn('actiontype', $vioTypeVal);
+ 
+             if (isset($data['driverId'])) {
+@@ -5457,8 +5485,8 @@ join (select driverid from v_driverinfo   ";
+                 $vioTypeTopVal[] = $vioTypeTop[$i]->actiontype;
+             }
+             $vioData = DB::table('stat_driving_violation_summary')
+-                ->join('t_mauth_dept','stat_driving_violation_summary.lineId','=','t_mauth_dept.lineDeptId')
+-                ->where($depttype,'=',$deptid);
++                ->join('t_mauth_dept', 'stat_driving_violation_summary.lineId', '=', 't_mauth_dept.lineDeptId')
++                ->where($depttype, '=', $deptid);
+             if ($take != -1) {
+                 $vioData = $vioData->whereIn('actionType', $vioTypeTopVal);
+             }
+@@ -5555,7 +5583,7 @@ join (select driverid from v_driverinfo   ";
+         }
+         $timeType = $data['timeType'];
+         //$userdeptid = $this->getUserIdViolationType();
+-        $userdeptid=DB::table("v_lineinfo")->where($depttype,"=",$deptid)->select("companyDeptId")->first()->companyDeptId;
++        $userdeptid = DB::table("v_lineinfo")->where($depttype, "=", $deptid)->select("companyDeptId")->first()->companyDeptId;
+         $timeDay = $this->timeTypeConversion($timeType);
+         $startDay = $timeDay['startDay'];
+         $endDay = $timeDay['endDay'];
+@@ -5595,7 +5623,7 @@ join (select driverid from v_driverinfo   ";
+         //当页面选中为timeType=0，昨天时，数据从stat_driving_violation_detail统计
+         if ($timeType == 0) {
+             $dangerData = DB::table('stat_driving_violation_detail')
+-                ->where($depttype,'=',$deptid)
++                ->where($depttype, '=', $deptid)
+                 ->whereIn('actiontype', $dangerTypeVal);
+ 
+             if (isset($data['driverId'])) {
+@@ -5608,7 +5636,7 @@ join (select driverid from v_driverinfo   ";
+                 ->selectRaw('DATE_FORMAT(begin_time,\'%H\') as time,count(actiontype) as actiontypeSum')
+                 ->get();
+             $damageData = DB::table('stat_driving_violation_detail')
+-                ->where($depttype,'=',$deptid)
++                ->where($depttype, '=', $deptid)
+                 ->whereIn('actiontype', $damageTypeVal);
+             if (isset($data['driverId'])) {
+                 $damageData = $damageData->whereIn('driverId', $data['driverId']);
+@@ -5620,7 +5648,7 @@ join (select driverid from v_driverinfo   ";
+                 ->selectRaw('DATE_FORMAT(begin_time,\'%H\') as time,count(actiontype) as actiontypeSum')
+                 ->get();
+             $badServiceData = DB::table('stat_driving_violation_detail')
+-                ->where($depttype,'=',$deptid)
++                ->where($depttype, '=', $deptid)
+                 ->whereIn('actiontype', $badServiceTypeVal);
+             if (isset($data['driverId'])) {
+                 $badServiceData = $badServiceData->whereIn('driverId', $data['driverId']);
+@@ -5669,8 +5697,8 @@ join (select driverid from v_driverinfo   ";
+                 $dt_start = strtotime('+1 day', $dt_start);
+             }
+             $dangerData = DB::table('stat_driving_violation_day')
+-                ->join('t_mauth_dept','stat_driving_violation_day.lineId','=','t_mauth_dept.lineDeptId')
+-                ->where($depttype,'=',$deptid)
++                ->join('t_mauth_dept', 'stat_driving_violation_day.lineId', '=', 't_mauth_dept.lineDeptId')
++                ->where($depttype, '=', $deptid)
+                 ->whereIn('actionType', $dangerTypeVal);
+             if (isset($data['driverId'])) {
+                 $dangerData = $dangerData->whereIn('driverId', $data['driverId']);
+@@ -5682,8 +5710,8 @@ join (select driverid from v_driverinfo   ";
+                 ->selectRaw('sum(totalNum) as totalSum,stat_date')
+                 ->get();
+             $damageData = DB::table('stat_driving_violation_day')
+-                ->join('t_mauth_dept','stat_driving_violation_day.lineId','=','t_mauth_dept.lineDeptId')
+-                ->where($depttype,'=',$deptid)
++                ->join('t_mauth_dept', 'stat_driving_violation_day.lineId', '=', 't_mauth_dept.lineDeptId')
++                ->where($depttype, '=', $deptid)
+                 ->whereIn('actionType', $damageTypeVal);
+             if (isset($data['driverId'])) {
+                 $damageData = $damageData->whereIn('driverId', $data['driverId']);
+@@ -5695,8 +5723,8 @@ join (select driverid from v_driverinfo   ";
+                 ->selectRaw('sum(totalNum) as totalSum,stat_date')
+                 ->get();
+             $badServiceData = DB::table('stat_driving_violation_day')
+-                ->join('t_mauth_dept','stat_driving_violation_day.lineId','=','t_mauth_dept.lineDeptId')
+-                ->where($depttype,'=',$deptid)
++                ->join('t_mauth_dept', 'stat_driving_violation_day.lineId', '=', 't_mauth_dept.lineDeptId')
++                ->where($depttype, '=', $deptid)
+                 ->whereIn('actionType', $badServiceTypeVal);
+             if (isset($data['driverId'])) {
+                 $badServiceData = $badServiceData->whereIn('driverId', $data['driverId']);
+@@ -5747,8 +5775,8 @@ join (select driverid from v_driverinfo   ";
+                 $temp = date("Y-m-d", strtotime("+1 months", strtotime($temp)));
+             }
+             $dangerData = DB::table('stat_driving_violation_summary')
+-                ->join('t_mauth_dept','stat_driving_violation_summary.lineId','=','t_mauth_dept.lineDeptId')
+-                ->where($depttype,'=',$deptid)
++                ->join('t_mauth_dept', 'stat_driving_violation_summary.lineId', '=', 't_mauth_dept.lineDeptId')
++                ->where($depttype, '=', $deptid)
+                 ->whereIn('actionType', $dangerTypeVal);
+             if (isset($data['driverId'])) {
+                 $dangerData = $dangerData->whereIn('driverId', $data['driverId']);
+@@ -5760,8 +5788,8 @@ join (select driverid from v_driverinfo   ";
+                 ->selectRaw('sum(totalNum) as totalSum,stat_date')
+                 ->get();
+             $damageData = DB::table('stat_driving_violation_summary')
+-                ->join('t_mauth_dept','stat_driving_violation_summary.lineId','=','t_mauth_dept.lineDeptId')
+-                ->where($depttype,'=',$deptid)
++                ->join('t_mauth_dept', 'stat_driving_violation_summary.lineId', '=', 't_mauth_dept.lineDeptId')
++                ->where($depttype, '=', $deptid)
+                 ->whereIn('actionType', $damageTypeVal);
+             if (isset($data['driverId'])) {
+                 $damageData = $damageData->whereIn('driverId', $data['driverId']);
+@@ -5773,8 +5801,8 @@ join (select driverid from v_driverinfo   ";
+                 ->selectRaw('sum(totalNum) as totalSum,stat_date')
+                 ->get();
+             $badServiceData = DB::table('stat_driving_violation_summary')
+-                ->join('t_mauth_dept','stat_driving_violation_summary.lineId','=','t_mauth_dept.lineDeptId')
+-                ->where($depttype,'=',$deptid)
++                ->join('t_mauth_dept', 'stat_driving_violation_summary.lineId', '=', 't_mauth_dept.lineDeptId')
++                ->where($depttype, '=', $deptid)
+                 ->whereIn('actionType', $badServiceTypeVal);
+             if (isset($data['driverId'])) {
+                 $badServiceData = $badServiceData->whereIn('driverId', $data['driverId']);
+@@ -7969,10 +7997,10 @@ INNER JOIN v_lineinfo c ON b.deptId = c.lineDeptId   ";
+ 
+         //明细报表-站点违规 只能选择线路，调用该接口时未传参数depttype
+         //明细报表-报表导出 分公司/车队/线路/车辆，调用该接口时存在参数depttype
+-        if(isset($this->params['depttype'])){
++        if (isset($this->params['depttype'])) {
+             //报表导出请求，无数据时查表头
+             $depttype = $this->params['depttype'];
+-        }else{
++        } else {
+             $depttype = "lineDeptId";
+         }
+ 
+@@ -8127,10 +8155,10 @@ INNER JOIN v_lineinfo c ON b.deptId = c.lineDeptId   ";
+ 
+         //明细报表-站点违规 只能选择线路，调用该接口时未传参数depttype
+         //明细报表-报表导出 分公司/车队/线路/车辆，调用该接口时存在参数depttype
+-        if(isset($this->params['depttype'])){
++        if (isset($this->params['depttype'])) {
+             //报表导出请求，无数据时查表头
+             $depttype = $this->params['depttype'];
+-        }else{
++        } else {
+             $depttype = "lineDeptId";
+         }
+ 
+@@ -8512,10 +8540,10 @@ INNER JOIN v_lineinfo c ON b.deptId = c.lineDeptId   ";
+ 
+         //明细报表-站点违规 只能选择线路，调用该接口时未传参数depttype
+         //明细报表-报表导出 分公司/车队/线路/车辆，调用该接口时存在参数depttype
+-        if(isset($this->params['depttype'])){
++        if (isset($this->params['depttype'])) {
+             //报表导出请求，无数据时查表头
+             $depttype = $this->params['depttype'];
+-        }else{
++        } else {
+             $depttype = "lineDeptId";
+         }
+ 
+@@ -8874,10 +8902,10 @@ from `stat_driving_violation_detail` ";
+ 
+         //明细报表-站点违规 只能选择线路，调用该接口时未传参数depttype
+         //明细报表-报表导出 分公司/车队/线路/车辆，调用该接口时存在参数depttype
+-        if(isset($this->params['depttype'])){
++        if (isset($this->params['depttype'])) {
+             //报表导出请求，无数据时查表头
+             $depttype = $this->params['depttype'];
+-        }else{
++        } else {
+             $depttype = "lineDeptId";
+         }
+ 
+@@ -9078,10 +9106,10 @@ from `stat_driving_violation_detail` ";
+ 
+         //明细报表-站点违规 只能选择线路，调用该接口时未传参数depttype
+         //明细报表-报表导出 分公司/车队/线路/车辆，调用该接口时存在参数depttype
+-        if(isset($this->params['depttype'])){
++        if (isset($this->params['depttype'])) {
+             //报表导出请求，无数据时查表头
+             $depttype = $this->params['depttype'];
+-        }else{
++        } else {
+             $depttype = "lineDeptId";
+         }
+ 
+@@ -14657,7 +14685,7 @@ INNER JOIN v_lineinfo c ON b.deptId = c.lineDeptId  ";
+                 thirdMaintenance< CURRENT_DATE() - interval day(CURRENT_DATE())-1 day - interval month(CURRENT_DATE()) -1 month - interval 1 year";
+                 break;
+         }
+-        $userdeptid=DB::table("v_lineinfo")->where('lineDeptId',"=",$deptid)->select("companyDeptId")->first()->companyDeptId;
++        $userdeptid = DB::table("v_lineinfo")->where('lineDeptId', "=", $deptid)->select("companyDeptId")->first()->companyDeptId;
+         // sql 头部
+         $sqloverdue = "SELECT ifnull(COUNT(1),0) as overdue FROM t_vehiclemaintenance WHERE  vehicleNO IN (SELECT vehicleNo FROM t_vehicleinfo b
+ INNER JOIN v_lineinfo c ON b.deptId = c.lineDeptId   ";
+@@ -19533,7 +19561,7 @@ and bigsysc is null "));
+                 $typeArr[] = $val->alarmtypename;
+             }
+         }
+-        $lineDeptId = DB::table("v_vehicleinfo")->select("lineDeptId")->distinct()->where($this->params['findKeyEqual1'],$this->params['findValEqual1'])->first();
++        $lineDeptId = DB::table("v_vehicleinfo")->select("lineDeptId")->distinct()->where($this->params['findKeyEqual1'], $this->params['findValEqual1'])->first();
+         if (isset($this->params['timeType']) && $this->params['timeType'] == -1 ||
+             (isset($this->params['startdate']) && date("Y-m-d") == $this->params['startdate'] && $this->params['startdate'] == $this->params['enddate'])) {
+             $select = DB::table('api_breakdowns_day')
+@@ -19602,12 +19630,12 @@ and bigsysc is null "));
+                 SELECT alarmtypename FROM `t_vehiclealarmtype3` where type='$bigtType') AS tv ON `api_breakdowns`.alarmtypename = tv.alarmtypename ";
+                 $sql1 = $sql1 . $sql2;
+             }
+-            $sql2 = "INNER JOIN `v_vehicleinfo` ON `api_breakdowns`.`vehicleNo` = `v_vehicleinfo`.`vehicleNo` where `v_vehicleinfo`.`".$this->params['findKeyEqual1']."`= '".$this->params['findValEqual1']."' and `api_breakdowns`.deptId = ". $lineDeptId->lineDeptId;
++            $sql2 = "INNER JOIN `v_vehicleinfo` ON `api_breakdowns`.`vehicleNo` = `v_vehicleinfo`.`vehicleNo` where `v_vehicleinfo`.`" . $this->params['findKeyEqual1'] . "`= '" . $this->params['findValEqual1'] . "' and `api_breakdowns`.deptId = " . $lineDeptId->lineDeptId;
+             $sql1 = $sql1 . $sql2;
+ 
+-            if (!is_null($deptType) && !is_null($id)) $sql1 = $sql1 ." and ".$deptType." = ". $id;
++            if (!is_null($deptType) && !is_null($id)) $sql1 = $sql1 . " and " . $deptType . " = " . $id;
+             if (isset($this->params['type']) && $this->params['type'] != null && $this->params['type'] != '' && $this->params['type'] != 'all') {
+-                $sql1 = $sql1." and `api_breakdowns`.alarmtypename = '". $this->params['type']."' ";
++                $sql1 = $sql1 . " and `api_breakdowns`.alarmtypename = '" . $this->params['type'] . "' ";
+             }
+             /* if (!is_null($deptType) && !is_null($id)) $select = $select->where($deptType, '=', $id);*/
+             /* if (isset($this->params['type']) && $this->params['type'] != null && $this->params['type'] != '' && $this->params['type'] != 'all') {
+@@ -19624,19 +19652,19 @@ and bigsysc is null "));
+                 $startdate = isset($this->params['startdate']) ? $this->params['startdate'] : null;
+                 $enddate = isset($this->params['enddate']) ? $this->params['enddate'] : null;
+                 $time = $this->getdataByTime($this->params['timeType'], $startdate, $enddate);
+-                $sql2 = " AND `stat_date` >= '".$time[0]."' AND `stat_date` <= '".$time[1]."'";
++                $sql2 = " AND `stat_date` >= '" . $time[0] . "' AND `stat_date` <= '" . $time[1] . "'";
+                 $sql1 = $sql1 . $sql2;
+                 /*$select = $select->where('stat_date', '>=', $time[0])
+                     ->where('stat_date', '<=', $time[1]);*/
+             }
+             $sql2 = " GROUP BY `v_vehicleinfo`.`vehicleId`,`api_breakdowns`.`alarmtypename`";
+             $sql1 = $sql1 . $sql2;
+-            $countSql = "select count(*) as count from (".$sql1.") as a";
+-            if(isSet($this->params['page']) && isSet($this->params['count'])){
++            $countSql = "select count(*) as count from (" . $sql1 . ") as a";
++            if (isSet($this->params['page']) && isSet($this->params['count'])) {
+                 $page = $this->params['page'];
+                 $count = $this->params['count'];
+                 $offset = $count * ($page - 1) <= 0 ? 0 : $count * ($page - 1);
+-                $sql1 .= " limit ".$offset.",".$count;
++                $sql1 .= " limit " . $offset . "," . $count;
+             }
+             $select = DB::select($sql1);
+             $selectCount = DB::select($countSql);
+@@ -20000,8 +20028,8 @@ and bigsysc is null "));
+                 DB::table("config_log")->insert(['deptId' => $companyDeptId, 'time' => date("Y-m-d"), 'history' => $oldDayOfMonth->dayOfMonth, 'update' => $newDayOfMonth, 'changefield' => 'dayOfMonth', 'tableName' => 'weeklyreport_config', 'user_id' => $user_id]);
+                 DB::commit();
+             } else {
+-                $default = DB::table("weeklyreport_config")->select("dayOfMonth","alarmLevel")->where("companyDeptId",-1)->first();
+-                DB::table("weeklyreport_config")->insert(['companyDeptId' => $companyDeptId, 'dayOfMonth' => $newDayOfMonth,'alarmLevel' => $default->alarmLevel]);
++                $default = DB::table("weeklyreport_config")->select("dayOfMonth", "alarmLevel")->where("companyDeptId", -1)->first();
++                DB::table("weeklyreport_config")->insert(['companyDeptId' => $companyDeptId, 'dayOfMonth' => $newDayOfMonth, 'alarmLevel' => $default->alarmLevel]);
+                 DB::table("config_log")->insert(['deptId' => $companyDeptId, 'time' => date("Y-m-d"), 'history' => $default->dayOfMonth, 'update' => $newDayOfMonth, 'changefield' => 'dayOfMonth', 'tableName' => 'weeklyreport_config', 'user_id' => $user_id]);
+                 DB::commit();
+             }
+@@ -20014,6 +20042,7 @@ and bigsysc is null "));
+         $ret = $this->setJsonResponse(1, true);
+         return $ret;
+     }
++
+     /**
+      *API: api/statistic/queryWeeklyreportDate
+      * @name: 查询考核周期配置历史记录
+@@ -20045,7 +20074,7 @@ and bigsysc is null "));
+         $endDate = $this->params['endDate'];
+         $findKey = $this->params['findKey'];
+         $findVal = $this->params['findVal'];
+-        $companyDeptIdArray = DB::table("t_mauth_dept")->where($findKey,$findVal)->select("companyDeptId")->first();
++        $companyDeptIdArray = DB::table("t_mauth_dept")->where($findKey, $findVal)->select("companyDeptId")->first();
+         $companyDeptId = $companyDeptIdArray->companyDeptId;
+         $sql = "select username,real_name,cl.time as 'time',cl.history as 'history',cl.`update` as 'update',mr.`name` as 'rolename',md.`name` as 'companyname'
+                                     from config_log cl
+@@ -20058,7 +20087,7 @@ and bigsysc is null "));
+                                     and time <= '" . $endDate . "' 
+                                     and tableName = 'weeklyreport_config'";
+ 
+-        $totalSql = "select count(*) as total from (".$sql.") as a";
++        $totalSql = "select count(*) as total from (" . $sql . ") as a";
+ 
+         if (isSet($this->params['page']) && isSet($this->params['count'])) {
+             $page = $this->params['page'];
+@@ -20106,18 +20135,17 @@ and bigsysc is null "));
+ 
+         $companyDeptId = $this->params['companyDeptId'];
+ 
+-        $dayOfMonth = DB::table("weeklyreport_config")->select("dayOfMonth")->where("companyDeptId",$companyDeptId)->first();
++        $dayOfMonth = DB::table("weeklyreport_config")->select("dayOfMonth")->where("companyDeptId", $companyDeptId)->first();
+ 
+-        if($dayOfMonth == null){
+-            $default = DB::table("weeklyreport_config")->select("dayOfMonth")->where("companyDeptId",-1)->first();
++        if ($dayOfMonth == null) {
++            $default = DB::table("weeklyreport_config")->select("dayOfMonth")->where("companyDeptId", -1)->first();
+             return $this->setJsonResponse(SUCCESS, ["dayOfMonth" => $default]);
+-        }else{
++        } else {
+             return $this->setJsonResponse(SUCCESS, $dayOfMonth);
+         }
+     }
+ 
+ 
+-
+     /**
+      *API: api/statistic/queryReport
+      * @name: 查询周报，月报，年报列表及详情
+@@ -20178,7 +20206,7 @@ and bigsysc is null "));
+             $info = $info->where("endTime", "like", "%$endTime%");
+         }
+         $info = $info->whereIn("deptId", $deptIdList)->where("reportType", $reportType);
+-        $data=$info->get();
++        $data = $info->get();
+ //        $total=$info;
+ //        $total= $total->count();
+ //        $info=$info->offset($offset)->limit($count)->get();
+@@ -20207,10 +20235,11 @@ and bigsysc is null "));
+      * @return: \Illuminate\Http\JsonResponse|mixed
+      * @throws: \App\Exception\ParamException
+      */
+-    public function queryDrivingcurveSystemtypeinfo(){
+-        $result = DB::table("t_drivingcurve_systemtypeinfo")->select("classify_analog_state")->where("id",1)->first();
++    public function queryDrivingcurveSystemtypeinfo()
++    {
++        $result = DB::table("t_drivingcurve_systemtypeinfo")->select("classify_analog_state")->where("id", 1)->first();
+         $recode = json_decode($result->classify_analog_state);
+         $ret = $this->setJsonResponse(SUCCESS, $recode);
+         return $ret;
+     }
+-}
+\ No newline at end of file
++}

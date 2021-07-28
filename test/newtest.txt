@@ -1,0 +1,23 @@
+diff --git a/lucky.js b/lucky.js
+index e54e753..a149394 100644
+--- a/lucky.js
++++ b/lucky.js
+@@ -434,8 +434,9 @@ angular.module('app')
+                          * @return
+                          */
+                         api.editUserSetting({
+-                            setting: JSON.stringify(vm.vehicleBaseField),
+-                            vehicleId: vm.selectedVehicle.vehicleId
++                            setting: JSON.stringify(vm.vehicleBaseField[data.key]),
++                            vehicleId: vm.selectedVehicle.vehicleId,
++                            subSystem:data.key
+                         }).then(() => {
+                             if (data.data) {
+                                 alert('修改成功');
+@@ -1222,4 +1223,4 @@ angular.module('app')
+                 }],
+             controllerAs: '$ctrl'
+         };
+-    });
++    });
+\ No newline at end of file

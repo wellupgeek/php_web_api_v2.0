@@ -1,0 +1,42 @@
+[
+    [
+        {
+            "c7416c11f31f4e4eb19460a0dee003661a65c4fc": [
+                {
+                    "status": "Modify",
+                    "code_line": 437,
+                    "api_code_line": 2,
+                    "origin": "Find",
+                    "message": [
+                        "@desc 修改开关项",
+                        "@name /api/dataManagement/editUserSetting",
+                        "@param setting 开关项全集数据",
+                        "@param vehicleId 车辆id",
+                        "@return"
+                    ]
+                }
+            ],
+            "file_path": "lucky.js"
+        }
+    ],
+    [
+        {
+            "c7416c11f31f4e4eb19460a0dee003661a65c4fc": [
+                {
+                    "status": "Modify",
+                    "code_line": 437,
+                    "api_code_line": 2,
+                    "origin": "Find",
+                    "message": [
+                        "@desc 修改开关项",
+                        "@name /api/dataManagement/editUserSetting",
+                        "@param setting 开关项全集数据",
+                        "@param vehicleId 车辆id",
+                        "@return"
+                    ]
+                }
+            ],
+            "file_path": "lucky.js"
+        }
+    ]
+]

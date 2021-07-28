@@ -1,0 +1,23 @@
+diff --git a/a/hahaha.txt b/a/hahaha.txt
+new file mode 100644
+index 0000000..c79123f
+--- /dev/null
++++ b/a/hahaha.txt
+@@ -0,0 +1,17 @@
++jkdjlafj
++dkajfje
++f 
++l ofnaiojfi je
++f waejfioi 
++dpn infia
++ enfjidjfa 
++ a ioje f
++
++  fijaioe 
++
++
++  ei fjij iof
++
++
++  e ifjaioejoi :wq
++

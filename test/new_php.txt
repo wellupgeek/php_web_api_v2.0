@@ -1,0 +1,4123 @@
+diff --git a/new.php b/new.php
+index fd3b531..9c2a9f3 100644
+--- a/new.php
++++ b/new.php
+@@ -20,6 +20,7 @@ use App\Models\DataModels\Data\DDrivingViolationType;
+ use Maatwebsite\Excel\Facades\Excel;
+ use App\PdoCache\CacheUtil;
+ use Auth;
++use PhpParser\Node\Expr\Array_;
+ use Response;
+ use Validator;
+ use Request;
+@@ -99,9 +100,16 @@ class ApiStatisticController extends Controller
+     }
+ 
+     /**
++     *API: api/statistic/getDriverActionAnalyseParams
++     * @name: 获取驾驶员行为分析参数配置
++     * @author: gikidy
++     * @edittime:
++     * @mode: post
+      *
+-     * 获取驾驶员行为分析参数配置
+-     * @author gikidy
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: deptid,description:机构ID
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
+      */
+     public function getDriverActionAnalyseParams(Request $request)
+     {
+@@ -144,14 +152,20 @@ class ApiStatisticController extends Controller
+     }
+ 
+     /**
+-     * 驾驶员行为横向评比
+-     * @param type 评比类型
+-     *      company 总公司
+-     *      subcompany 分公司
+-     *      group 车队
+-     *      line 线路
+-     * @param dept_id 线路、车队、分公司、总公司ID
++     *API: api/statistic/driverActionHCompare
++     * @name: 驾驶员行为横向评比
++     * @author:
++     * @edittime:
++     * @mode: post
+      *
++     * @param: \Illuminate\Http\Request $request  dept_id 线路、车队、分公司、总公司ID
++     *parameter1: dept_id,description:组织ID
++     *parameter2: page,description:页码
++     *parameter3: count,description:行数
++     *parameter4: stat_date,description:时间
++     *parameter5: type,description:类型
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
+      */
+     public function driverActionHCompare(\Illuminate\Http\Request $request)
+     {
+@@ -172,14 +186,19 @@ class ApiStatisticController extends Controller
+     }
+ 
+     /**
+-     * 驾驶员行为纵向评比
+-     * @param type 评比类型
+-     *      subcompany 分公司
+-     *      group 车队
+-     *      line 线路
+-     *      driver 驾驶员
+-     * @param id type为 subcompany|group|line时，id为线路、车队、分公司ID，为驾驶员时为驾驶员ID.
++     *API: api/statistic/driverActionVCompare
++     * @name: 驾驶员行为纵向评比
++     * @author:
++     * @edittime:
++     * @mode: post
+      *
++     * @param: \Illuminate\Http\Request $request  id type为 subcompany|group|line时，id为线路、车队、分公司ID，为驾驶员时为驾驶员ID.
++     *parameter1: dept_id,description:组织ID
++     *parameter2: ctype,description:比较规则
++     *parameter3: stat_date,description:时间
++     *parameter4: type,description:类型
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
+      */
+     public function driverActionVCompare(\Illuminate\Http\Request $request)
+     {
+@@ -195,7 +214,24 @@ class ApiStatisticController extends Controller
+         return $this->setJsonResponse(SUCCESS, ['data' => $ret]);
+     }
+ 
+-//明细接口
++    /**
++     *API: api/statistic/driverActionDetail
++     * @name: 驾驶员违规明细接口
++     * @author:
++     * @edittime:
++     * @mode: post
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: page,description:页码
++     *parameter2: count,description:行数
++     *parameter3: driverId,description:驾驶员ID
++     *parameter4: startDate,description:开始时间
++     *parameter5: endDate,description:结束时间
++     *parameter6: violationType,description:违规类型
++     *parameter7: actiontypeDesc,description:违规名称
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function driverActionDetail(\Illuminate\Http\Request $request)
+     {
+ 
+@@ -248,13 +284,13 @@ class ApiStatisticController extends Controller
+         if (isset($params['violationType'])) {
+             switch ($params['violationType']) {
+                 case 1:
+-                    $violationeName = "badServiceType";
++                    $violationeName = '4';//badserviceType
+                     break;
+                 case 2:
+-                    $violationeName = "dangerType";
++                    $violationeName = '1';//dangerType
+                     break;
+                 case 3:
+-                    $violationeName = "damageType";
++                    $violationeName = '3';//damageType
+                     break;
+                 default:
+                     $violationeName = null;
+@@ -293,7 +329,7 @@ class ApiStatisticController extends Controller
+                 ->leftJoin('v_drivingconfig', function ($join) {
+                     $join->on('v_drivingconfig.dept_id', '=', 'stat_driving_violation_detail.lineDeptid')->On('v_drivingconfig.type', '=', 'stat_driving_violation_detail.actiontype');
+                 })
+-                ->join('driving_violation_type', 'driving_violation_type.violationeName', '=', 'stat_driving_violation_detail.actiontype')
++                ->join('driving_violation_type_new', 'driving_violation_type_new.violationeName', '=', 'stat_driving_violation_detail.actiontype')
+                 ->leftJoin('t_areainfo', 't_areainfo.areaId', '=', 'stat_driving_violation_detail.begin_site')
+                 ->whereIn('stat_driving_violation_detail.driverId', $driverId)
+                 ->where('stat_driving_violation_detail.stat_date', '>=', $startDate)
+@@ -318,7 +354,7 @@ class ApiStatisticController extends Controller
+                     $join->on('v_drivingconfig.dept_id', '=', 'stat_driving_violation_detail.lineDeptid')->On('v_drivingconfig.type', '=', 'stat_driving_violation_detail.actiontype');
+                 })
+                 ->leftJoin('t_areainfo', 't_areainfo.areaId', '=', 'stat_driving_violation_detail.begin_site')
+-                ->join('driving_violation_type', 'driving_violation_type.violationeName', '=', 'stat_driving_violation_detail.actiontype')
++                ->join('driving_violation_type_new', 'driving_violation_type_new.violationeName', '=', 'stat_driving_violation_detail.actiontype')
+                 ->selectRaw("
+                     `t_vehicleinfo`.`vehicleNo`,
+                     `stat_driving_violation_detail`.`driverName`,
+@@ -345,9 +381,9 @@ class ApiStatisticController extends Controller
+                 ->where('stat_driving_violation_detail.stat_date', '>=', $startDate)
+                 ->where('stat_driving_violation_detail.stat_date', '<=', $stopDate)
+                 ->whereIn('stat_driving_violation_detail.driverId', $driverId)
+-                ->where('driving_violation_type.deptid', '=', $company);
++                ->where('driving_violation_type_new.deptid', '=', $company);
+             if ($violationeName != null) {
+-                $data->where("driving_violation_type.$violationeName", '=', '1');
++                $data->where("driving_violation_type_new.violationrank", '=', $violationeName);
+             }
+             $data = $data->distinct()->offset($startIndex)->limit($off)->get();
+         }
+@@ -443,9 +479,27 @@ class ApiStatisticController extends Controller
+     }
+ 
+     /**
+-     * 驾驶员不规范操作频次统计  forbeijing
++     *API: api/statistic/driverActionFrequency2
++     * @name: 驾驶员不规范操作频次统计
++     * @author:
++     * @edittime:
++     * @mode: post
+      *
+-     * @param \Illuminate\Http\Request $request
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: page,description:页码
++     *parameter2: count,description:行数
++     *parameter3: sortKey,description:排序字段
++     *parameter4: sortVal,description:排序方式
++     *parameter5: findKey4,description:查询类型
++     *parameter6: findKey5,description:查询类型
++     *parameter7: findVal4,description:类型值
++     *parameter8: findVal5,description:类型值
++     *parameter9: violationType,description:违规类型
++     *parameter10: driverId,description:司机ID
++     *parameter11: startDate,description:开始时间
++     *parameter12: endDate,description:结束时间
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
+      */
+     public function driverActionFrequency2(\Illuminate\Http\Request $request)
+     {
+@@ -739,7 +793,6 @@ class ApiStatisticController extends Controller
+             $this->params['violationType'] = -1;
+         }
+         $violationTypeArr = $this->getViolationeName($this->params);
+-
+         $key = $this->params['findKeyEqual1'];
+         $val = $this->params['findValEqual1'];
+         $ids = $this->getMAuthedLines(null, null, 'deptId');
+@@ -758,7 +811,7 @@ class ApiStatisticController extends Controller
+             `stat_driving_violation_day`.`actionType` AS `actionType`,
+             sum(`stat_driving_violation_day`.`totalNum`) AS `totalNum`
+               ";
+-
++        // select driverId from v_driverinfo where 1=1 and lineName= 'B1号线'
+         //20190508修改
+         $driverId = (new DStatDrivingViolationSummaryForBeiJingByDay())
+             ->selectRaw('stat_driving_violation_day.driverId as driverId ,stat_driving_violation_day.driverName as driverName,stat_driving_violation_day.deviceId as deviceId,sum(stat_driving_violation_day.totalNum) as scores')
+@@ -776,7 +829,6 @@ class ApiStatisticController extends Controller
+ 
+         $driverId = $this->doSort($params, $driverId);//排序
+         $driverId = $this->filterPagination($params, $driverId);//分页
+-
+         $id = [];
+         foreach ($driverId as $s => $n) {
+             $id[] = $n['driverId'];
+@@ -784,7 +836,7 @@ class ApiStatisticController extends Controller
+         $data = (new DStatDrivingViolationSummaryForBeiJingByDay())
+             ->selectRaw($selectStr)
+             ->join('v_driverinfo', 'stat_driving_violation_day.driverId', '=', 'v_driverinfo.driverId')
+-            ->where('stat_driving_violation_day.'.$key, "=", $val)
++            ->where('stat_driving_violation_day.' . $key, "=", $val)
+             ->whereIn('lineId', $ids)
+             ->whereIn('v_driverinfo.driverId', $id)->whereIn('stat_driving_violation_day.actionType', $violationTypeArr);
+         if (isset($this->params['findVal5']) && isset($this->params['findVal4'])) {
+@@ -872,26 +924,64 @@ class ApiStatisticController extends Controller
+ 
+     public function getViolationeName($param)
+     {
+-        $key = $param['findKeyEqual1'];
+-        $val = $param['findValEqual1'];
+-        $sql = "select violationeName from driving_violation_type 
+-        INNER JOIN v_driverinfo on driving_violation_type.deptid=v_driverinfo.companyDeptId
+-        where v_driverinfo.";
+-        $sql .= $key . "='$val'";
+-        switch ($param['violationType']) {
++        $dept = Mauth\User::find(Auth::user()->user_id)
++            ->getUserDept()->first();
++        $deptlevel = null;
++        $id = null;
++        $userid = -1;
++        switch ($dept['level']) {
+             case 1:
+-                $sql .= ' and driving_violation_type.badServiceType=1';
++                $deptlevel = "companyDeptId";
++                $id = $dept['dept_id'];
+                 break;
+             case 2:
+-                $sql .= ' and driving_violation_type.dangerType=1';
++                $deptlevel = "subCompanyDeptId";
++                $id = $dept['dept_id'];
+                 break;
+             case 3:
+-                $sql .= ' and driving_violation_type.damageType=1';
+-            default:
++                $deptlevel = "groupDeptId";
++                $id = $dept['dept_id'];
++                break;
++            case 4:
++                $deptlevel = "lineDeptId";
++                $id = $dept['dept_id'];
++                break;
++        }
++
+ 
++        //查出该用户所属的总公司机构号
++
++        if (isset($deptlevel) && isset($id)) {
++            $userid = $id;
++        }
++//        $key = $param['findKeyEqual1'];
++//        $val = $param['findValEqual1'];
++//        $sql = "select violationeName from driving_violation_type_new
++//        INNER JOIN v_driverinfo on driving_violation_type_new.deptid=v_driverinfo.companyDeptId
++//        where driving_violation_type_new.deptid='$userid' and v_driverinfo.";
++//        $sql .= $key . "='$val'";
++        $sql = "select violationeName from driving_violation_type_new  where deptid='$userid' ";
++        if($param['violationType']&&$param['violationType']<>-1){
++            switch ($param['violationType']) {
++                case 1:
++                    //badserviceType
++                    $sql .= ' and driving_violation_type_new.violationrank=4';
++                    break;
++                case 2:
++                    //dangerType
++                    $sql .= ' and driving_violation_type_new.violationrank=1';
++                    break;
++                case 3:
++                    //damageType
++                    $sql .= ' and driving_violation_type_new.violationrank=3';
++                    break;
++                default:
++
++            }
+         }
+-        $violation = DB::select($sql . ' GROUP BY violationeName');
+ 
++
++        $violation = DB::select($sql . ' GROUP BY violationeName');
+         $ret = [];
+         foreach ($violation as $item => $value) {
+             $ret[] = $value->violationeName;
+@@ -960,7 +1050,21 @@ class ApiStatisticController extends Controller
+     }
+ 
+ 
+-    //详情接口
++    /**
++     *API: api/statistic/violationDetails
++     * @name: 驾驶员违规详情
++     * @author:
++     * @edittime:
++     * @mode: post
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: driverId,description:驾驶员ID
++     *parameter2: startDate,description:开始时间
++     *parameter3: endDate,description:结束时间
++     *parameter4: vehicleNo,description:车牌号
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function violationDetails(\Illuminate\Http\Request $request)
+     {
+         $rules = [
+@@ -1007,7 +1111,18 @@ class ApiStatisticController extends Controller
+ 
+ 
+     /**
+-     * 查询驾驶员参数绑定列表
++     *API: api/statistic/getDriverActionAnalyseList
++     * @name: 查询驾驶员参数绑定列表
++     * @author:
++     * @edittime:
++     * @mode: post
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: page,description:页码
++     *parameter2: count,description:行数
++     *parameter3: dept_id,description:公司ID
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
+      */
+     public function getDriverActionAnalyseList()
+     {
+@@ -1083,11 +1198,26 @@ class ApiStatisticController extends Controller
+         return $sqlLast[0];
+     }
+ 
+-
+     /**
+-     * 驾驶员不规范操作频次统计  forbeijing
++     *API: api/statistic/exportDriverActionFrequency2
++     * @name: 驾驶员不规范操作频次统计
++     * @author:
++     * @edittime:
++     * @mode: get
+      *
+-     * @param \Illuminate\Http\Request $request
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: count,description:行数
++     *parameter2: sortKey,description:排序键
++     *parameter3: sortVal,description:排序值
++     *parameter4: findKey5,description:查询键
++     *parameter5: findKey4,description:查询键
++     *parameter6: findVal4,description:查询值
++     *parameter7: findVal5,description:查询值
++     *parameter8: violationType,description:违规类型
++     *parameter9: findKeyEqual1,description:查询键
++     *parameter10: findValEqual1,description:查询值
++     * @return: Excel
++     * @throws: \App\Exception\ParamException
+      */
+     public function exportDriverActionFrequency2(\Illuminate\Http\Request $request)
+     {
+@@ -1679,9 +1809,18 @@ class ApiStatisticController extends Controller
+     }
+ 
+     /**
+-     * 所有驾驶员不规范操作频次综合统计 for beijing
++     *API: api/statistic/driverAllActionFrequency2
++     * @name: 驾驶员违规趋势图
++     * @author:
++     * @edittime:
++     * @mode: get
+      *
+-     * @param \Illuminate\Http\Request $request
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: depttype,description:查询类型
++     *parameter2: deptid,description:线路ID
++     *parameter3: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
+      */
+     public function driverAllActionFrequency2(\Illuminate\Http\Request $request)
+     {
+@@ -1742,9 +1881,26 @@ class ApiStatisticController extends Controller
+     }
+ 
+     /**
+-     * 车辆能耗统计
++     *API: api/statistic/energyConsume
++     * @name: 车辆能耗统计
++     * @author:
++     * @edittime:
++     * @mode: post
+      *
+-     * @param \Illuminate\Http\Request $request
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: findKeyEqual1,description:查询类型
++     *parameter2: findValEqual1,description:类型值
++     *parameter3: findKey,description:查询类型
++     *parameter4: findVal,description:类型值
++     *parameter5: findKey3,description:查询类型
++     *parameter6: findVal3,description:类型值
++     *parameter7: sortKey,description:排序字段
++     *parameter8: sortVal,description:排序类型
++     *parameter9: page,description:页码
++     *parameter10: count,description:行数
++     *parameter11: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
+      */
+     public function energyConsume(\Illuminate\Http\Request $request)
+     {
+@@ -1797,6 +1953,34 @@ class ApiStatisticController extends Controller
+         return $ret;
+     }
+ 
++    /**
++     *API: api/statistic/exportEnergyConsume
++     * @name: 导出车辆能耗统计
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: count,description:行数
++     *parameter2: findkey,description:查询键
++     *parameter3: findVal,description:查询值
++     *parameter4: startDate,description:开始时间
++     *parameter5: endDate,description:结束时间
++     *parameter6: findKeyEqual1,description:查询键
++     *parameter7: findValEqual1,description:查询值
++     *parameter8: depttype,description:组织类型
++     *parameter8: deptid,description:组织ID
++     *parameter8: violationType,description:违规类型
++     *parameter8: timeType,description:时间类型
++     *parameter8: findKey4,description:查询键
++     *parameter8: findKey5,description:查询键
++     *parameter8: findVal4,description:查询值
++     *parameter8: findVal5,description:查询值
++     *parameter8: deptKey,description:组织键
++     *parameter8: deptVal,description:组织值
++     * @return: Excel
++     * @throws: \App\Exception\ParamException
++     */
+     public function exportEnergyConsume(\Illuminate\Http\Request $request)
+     {
+ 
+@@ -2003,9 +2187,19 @@ class ApiStatisticController extends Controller
+     }
+ 
+     /**
+-     * 车辆能耗统计
++     *API: api/statistic/energyConsumeCompare
++     * @name: 车辆能耗统计-获取比对数据
++     * @table: t_vehicleinfo:车辆信息表，stat_energy_compare:能耗分析小时统计表
++     * @author:
++     * @edittime:
++     * @mode: post
+      *
+-     * @param \Illuminate\Http\Request $request
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: vehicleNos,description:车牌号
++     *parameter2: date,description:时间
++     *parameter3: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
+      */
+     public function energyConsumeCompare(\Illuminate\Http\Request $request)
+     {
+@@ -2082,9 +2276,21 @@ class ApiStatisticController extends Controller
+     }
+ 
+     /**
+-     * 节能分析
++     *API: api/statistic/energySaveAnalyse
++     * @name: 节能分析
++     * @author:
++     * @edittime:
++     * @mode: post
+      *
+-     * @param \Illuminate\Http\Request $request
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: findKey,description:查询键
++     *parameter2: findVal,description:查询值
++     *parameter3: page,description:页码
++     *parameter4: count,description:行数
++     *parameter5: findKey2,description:查询键
++     *parameter6: findVal2,description:查询值
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
+      */
+     public function energySaveAnalyse(\Illuminate\Http\Request $request)
+     {
+@@ -2115,9 +2321,32 @@ class ApiStatisticController extends Controller
+     }
+ 
+     /**
+-     * 节能分析导出
++     *API: api/statistic/exportEnergySaveAnalyse
++     * @name: 导出节能分析统计
++     * @author:
++     * @edittime:
++     * @mode: get
+      *
+-     * @param \Illuminate\Http\Request $request
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: count,description:行数
++     *parameter2: findkey,description:查询键
++     *parameter3: findVal,description:查询值
++     *parameter4: startDate,description:开始时间
++     *parameter5: endDate,description:结束时间
++     *parameter6: findKeyEqual1,description:查询键
++     *parameter7: findValEqual1,description:查询值
++     *parameter8: depttype,description:组织类型
++     *parameter9: deptid,description:组织ID
++     *parameter10: violationType,description:违规类型
++     *parameter11: timeType,description:时间类型
++     *parameter12: findKey4,description:查询键
++     *parameter13: findKey5,description:查询键
++     *parameter14: findVal4,description:查询值
++     *parameter15: findVal5,description:查询值
++     *parameter16: deptKey,description:组织键
++     *parameter17: deptVal,description:组织值
++     * @return: Excel
++     * @throws: \App\Exception\ParamException
+      */
+     public function exportEnergySaveAnalyse(\Illuminate\Http\Request $request)
+     {
+@@ -2300,7 +2529,21 @@ class ApiStatisticController extends Controller
+     }
+ 
+     /**
+-     * 获取某些车辆某段时间的固定个数Can数据
++     *API: api/statistic/getDrivingChartData
++     * @name: 行车图表数据获取
++     * @author:
++     * @edittime:
++     * @mode: post
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: indicators,description:指示
++     *parameter2: startTime,description:开始时间
++     *parameter3: stopTime,description:结束时间
++     *parameter4: isAddUnit,description:单位
++     *parameter5: vehicledeviceid,description:车辆设备id
++     *parameter6: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
+      */
+     public function getDrivingChartData(\Illuminate\Http\Request $request)
+     {
+@@ -2318,7 +2561,6 @@ class ApiStatisticController extends Controller
+         $this->params['isAddUnit'] = true;
+ 
+         $original_data = (new BStatVehicleCanData([], $request))->getSomeData($this->params);
+-
+         //如果返回的为数组->有查询记录无报错
+         if (is_array($original_data)) {
+             $this->params['vehicledeviceid'] = str_replace('"', '', $this->params['vehicledeviceid']);
+@@ -2357,7 +2599,26 @@ class ApiStatisticController extends Controller
+     }
+ 
+     /**
+-     * 导出某些车辆某段时间的固定个数Can数据
++     *API: api/statistic/exportDrivingChartData
++     * @name: 行车图表数据导出
++     * @author:
++     * @edittime:
++     * @mode: post
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: startTime,description:开始时间
++     *parameter2: stopTime,description:结束时间
++     *parameter3: vehicledeviceid,description:车辆ID
++     *parameter4: indicators,description:指标
++     *parameter5: indicatorscname,description:指标中文名
++     *parameter6: exportData,description:以数据形式导出
++     *parameter7: lineName,description:线路名称
++     *parameter8: groupName,description:组名称
++     *parameter9: vehicledeviceid,description:车辆设备ID
++     *parameter10: companyName,description:公司名称
++     *parameter11: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: Excel
++     * @throws: \App\Exception\ParamException
+      */
+     public function exportDrivingChartData(\Illuminate\Http\Request $request)
+     {
+@@ -2372,6 +2633,8 @@ class ApiStatisticController extends Controller
+             'exportData' => 'required|in:1',
+ 
+         ];
++        //定义变量一定要提前声明，否则就报错
++        $records = array();
+ 
+         $this->apiParamVerify($rules);
+ 
+@@ -2417,7 +2680,7 @@ class ApiStatisticController extends Controller
+                 $original_data[$i] = $originalData;
+             }
+         }
+-        $records=[];
++        $records = [];
+         foreach ($original_data as $key => $val) {
+             $records[$key] = array_merge($ret_init, $val);
+         }
+@@ -2543,7 +2806,24 @@ class ApiStatisticController extends Controller
+ 
+ 
+     /**
+-     * 获取车辆报警汇总
++     *API: api/statistic/getAlarmSummary
++     * @name: 查询故障列表
++     * @author:
++     * @edittime:
++     * @mode: post
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: page,description:当前页
++     *parameter2: count,description:每页显示数据数量
++     *parameter3: findKey,description:查询键(报警类型)
++     *parameter4: findVal,description:查询值(报警名称)
++     *parameter5: findKeyEqual,description:查询键
++     *parameter6: findValEqual,description:查询值
++     *parameter7: sortKey,description:排序字段
++     *parameter8: sortVal,description:排序类型（asc，desc)
++     *parameter9: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
+      */
+     public function getAlarmSummary(\Illuminate\Http\Request $request)
+     {
+@@ -2815,6 +3095,24 @@ class ApiStatisticController extends Controller
+         })->export('xlsx');
+     }
+ 
++    /**
++     *API: api/statistic/exportLastingAlarmSummary
++     * @name: 行车监控报警汇总数导出
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: page,description:当前页
++     *parameter2: count,description:行数
++     *parameter3: findKeyEqual1,description:查询类型
++     *parameter4: findValEqual,description:查询值
++     *parameter5: sortKey,description:排序字段
++     *parameter6: sortVal,description:排序类型(asc,desc)
++     *parameter7: deptid,description:组织ID
++     * @return: Excel
++     * @throws: \App\Exception\ParamException
++     */
+     public function exportLastingAlarmSummary(\Illuminate\Http\Request $request)
+     {
+         $this->predo('t_alarmsummary_unfinished', 't_alarmsummary_unfinished', 26);
+@@ -2985,7 +3283,21 @@ class ApiStatisticController extends Controller
+     }
+ 
+     /**
+-     * 获取车辆持续报警汇总
++     *API: api/statistic/getAlarmLastingSummary
++     * @name: 行车持续报警汇总数据获取
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: page,description:当前页
++     *parameter2: count,description:行数
++     *parameter3: findKeyEqual1,description:查询类型
++     *parameter4: findValEqual,description:查询值
++     *parameter5: sortKey,description:排序字段
++     *parameter6: sortVal,description:排序类型(asc,desc)
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
+      */
+     public function getAlarmLastingSummary(\Illuminate\Http\Request $request)
+     {
+@@ -3366,7 +3678,7 @@ left join t_alarmlevelinfo b on d. companyDeptId=b.deptId and d.alarmname=b.alar
+ 
+         }
+ 
+-        if (isset($params['findKey']) && isset($params['findVal'])) {
++        if (isset($params['findKey']) && !empty($params['findKey']) && isset($params['findVal']) && !empty($params['findVal'])) {
+             $key = $params['findKey'];
+             $val = $params['findVal'];
+ 
+@@ -3952,7 +4264,7 @@ left join t_alarmlevelinfo b on d. companyDeptId=b.deptId and d.alarmname=b.alar
+         // 固定的sql语句, 关联机构
+         $fixedCondtion = " ";
+         $userdeptid = $this->getUserIdViolationType();
+-        $violationtype = " and actiontypeDesc  IN (SELECT violationName FROM driving_violation_type WHERE deptid=$userdeptid and ";
++        $violationtype = " and actiontypeDesc  IN (SELECT violationName FROM driving_violation_type_new WHERE deptid=$userdeptid and ";
+ 
+         // 确定时间参数
+         $datatype = 0;
+@@ -4001,10 +4313,10 @@ left join t_alarmlevelinfo b on d. companyDeptId=b.deptId and d.alarmname=b.alar
+             $sqltype = $sql . $violationtype;
+             // 获取各类型数据数据
+             $sqlall = $sql . "GROUP BY $vehicleNoorID,actiontypeDesc )a ";
+-            $sqldanger = $sqltype . "   dangerType=1) GROUP BY $vehicleNoorID,actiontypeDesc)a  ";
++            $sqldanger = $sqltype . "   violationrank=1 group by violationName) GROUP BY $vehicleNoorID,actiontypeDesc)a  ";
+             //   $sqlhighConsume=$sqltype."   hignConsumeType=1)";
+-            $sqldamgage = $sqltype . "  damageType=1) GROUP BY $vehicleNoorID,actiontypeDesc )a ";
+-            $sqlbadService = $sqltype . "   badServiceType=1) GROUP BY $vehicleNoorID,actiontypeDesc )a ";
++            $sqldamgage = $sqltype . "  violationrank=3 group by violationName) GROUP BY $vehicleNoorID,actiontypeDesc )a ";
++            $sqlbadService = $sqltype . "   violationrank=4 group by violationName) GROUP BY $vehicleNoorID,actiontypeDesc )a ";
+ 
+             $rets['all'] = DB::select($sqlall)[0]->cnt;
+             $rets['danger'] = DB::select($sqldanger)[0]->cnt;
+@@ -4024,10 +4336,10 @@ left join t_alarmlevelinfo b on d. companyDeptId=b.deptId and d.alarmname=b.alar
+         $sqltype = $sql . $violationtype;
+         // 获取各类型数据数据
+         $sqlall = $sql . "GROUP BY $vehicleNoorID,actiontypeDesc )a ";
+-        $sqldanger = $sqltype . "   dangerType=1) GROUP BY $vehicleNoorID,actiontypeDesc)a  ";
++        $sqldanger = $sqltype . "   violationrank=1) GROUP BY $vehicleNoorID,actiontypeDesc)a  ";
+         //   $sqlhighConsume=$sqltype."   hignConsumeType=1)";
+-        $sqldamgage = $sqltype . "  damageType=1) GROUP BY $vehicleNoorID,actiontypeDesc )a ";
+-        $sqlbadService = $sqltype . "   badServiceType=1) GROUP BY $vehicleNoorID,actiontypeDesc )a ";
++        $sqldamgage = $sqltype . "  violationrank=3) GROUP BY $vehicleNoorID,actiontypeDesc )a ";
++        $sqlbadService = $sqltype . "   violationrank=4) GROUP BY $vehicleNoorID,actiontypeDesc )a ";
+ 
+         $rets['all'] = DB::select($sqlall)[0]->cnt;
+         $rets['danger'] = DB::select($sqldanger)[0]->cnt;
+@@ -4037,6 +4349,20 @@ left join t_alarmlevelinfo b on d. companyDeptId=b.deptId and d.alarmname=b.alar
+         return $this->setJsonResponse(SUCCESS, $rets);
+     }
+ 
++    /**
++     *API: api/statistic/getViolationCount
++     * @name: 违规概括信息
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: depttype,description:机构类型
++     *parameter2: deptid,description:机构ID
++     *parameter3: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getViolationCount(\Illuminate\Http\Request $request)
+     {
+ // 判断用户等级
+@@ -4096,6 +4422,22 @@ left join t_alarmlevelinfo b on d. companyDeptId=b.deptId and d.alarmname=b.alar
+         return $this->setJsonResponseNew(SUCCESS, $rets, $beforerets);
+     }
+ 
++    /**
++     *API: api/statistic/getDriverViolationTimes
++     * @name: 驾驶员违规分析
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: deptid,description:机构ID
++     *parameter2: page,description:页码
++     *parameter3: count,description:行数
++     *parameter4: driverName,description:驾驶员姓名
++     *parameter5: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getDriverViolationTimes(\Illuminate\Http\Request $request)
+     {
+ 
+@@ -4149,12 +4491,14 @@ left join t_alarmlevelinfo b on d. companyDeptId=b.deptId and d.alarmname=b.alar
+         }
+         $driverName = $params['driverName'];
+         $deptId = $params['deptId'];
+-        $userdeptid = $this->getUserIdViolationType();
++        // $userdeptid = $this->getUserIdViolationType();
++        $userdeptid=DB::table("v_lineinfo")->where('lineDeptId',"=",$deptId)->select("companyDeptId")->first()->companyDeptId;
++
+         $sql = " FROM (
+ SELECT actiontypeDesc,SUM(total) AS total  FROM api_violation WHERE driverName='$driverName' and deptId='$deptId' AND $dataconditon GROUP BY actiontypeDesc)a INNER JOIN 
+- (  SELECT '危险驾驶' AS t, violationName FROM `driving_violation_type` WHERE deptid=$userdeptid and dangerType=1 
+- UNION ALL SELECT '损车驾驶' AS t, violationName FROM `driving_violation_type` WHERE deptid=$userdeptid and damageType=1 
+- UNION ALL SELECT '不良服务' AS t, violationName FROM `driving_violation_type` WHERE deptid=$userdeptid and badServiceType=1 ) b ON  a.actiontypeDesc=b.violationName GROUP BY actiontypeDesc ";
++ (  SELECT '危险驾驶' AS t, violationName FROM `driving_violation_type_new` WHERE deptid=$userdeptid and violationrank=1 group by violationName
++ UNION ALL SELECT '损车驾驶' AS t, violationName FROM `driving_violation_type_new` WHERE deptid=$userdeptid and violationrank=3 group by violationName
++ UNION ALL SELECT '不良服务' AS t, violationName FROM `driving_violation_type_new` WHERE deptid=$userdeptid and violationrank=4 group by violationName) b ON  a.actiontypeDesc=b.violationName GROUP BY actiontypeDesc ";
+ 
+         $count = isset($params['count']) ? $params['count'] : 8;
+ 
+@@ -4198,6 +4542,19 @@ SELECT actiontypeDesc,SUM(total) AS total  FROM api_violation WHERE driverName='
+ 
+     }
+ 
++    /**
++     *API: api/statistic/getViolationDriverCount
++     * @name: 驾驶员违规次数
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: deptid,description:线路ID
++     *parameter2: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getViolationDriverCount(\Illuminate\Http\Request $request)
+     {
+         $dept = Mauth\User::find(Auth::user()->user_id)
+@@ -4236,17 +4593,17 @@ SELECT actiontypeDesc,SUM(total) AS total  FROM api_violation WHERE driverName='
+ 
+         }
+         // sql 头部
+-        $sql = "SELECT ifnull(sum(a.total),0) as allcnt,count(deviceid)as carcnt FROM 
+-(SELECT api.deviceid,  SUM(totalNum) AS total,1 AS stat_date FROM stat_driving_violation_day  api
++        $sql = "SELECT ifnull(sum(a.total),0) as allcnt,count(deviceid)as carcnt,mark FROM 
++(SELECT api.deviceid,  SUM(totalNum) AS total,1 AS mark FROM stat_driving_violation_day  api
+ join (select driverid from v_driverinfo ";
+         $sqltwo = " UNION ALL
+-                  SELECT api.deviceid,SUM(totalNum) AS total,2 AS stat_date FROM stat_driving_violation_day  api JOIN (SELECT driverid FROM v_driverinfo ";
++                  SELECT api.deviceid,SUM(totalNum) AS total,2 AS mark FROM stat_driving_violation_day  api JOIN (SELECT driverid FROM v_driverinfo ";
+ 
+-        $sql2 = "SELECT count(driverName) as cnt FROM 
+-(SELECT driverName ,1 AS stat_date FROM stat_driving_violation_day  api
++        $sql2 = "SELECT count(driverName) as cnt,mark FROM 
++(SELECT driverName ,1 AS mark FROM stat_driving_violation_day  api
+ join (select driverid from v_driverinfo   ";
+ 
+-        $sql2two = " union all SELECT api.driverName ,2 AS stat_date FROM stat_driving_violation_day  api JOIN (SELECT driverid FROM v_driverinfo ";
++        $sql2two = " union all SELECT api.driverName ,2 AS mark FROM stat_driving_violation_day  api JOIN (SELECT driverid FROM v_driverinfo ";
+ 
+         // 要查询的机构
+         $deptid = $request->get('deptid');
+@@ -4308,22 +4665,29 @@ join (select driverid from v_driverinfo   ";
+ // 如果用户等级不是 顶级则
+         if ($deptlevel != null) {
+             if ($deptid != null && $depttype != null) {
+-                $fixedCondtion .= " where $deptlevel=$id and $depttype = '$deptid' ) temp on api.driverId=temp.driverid join driving_violation_type vioype ON api.actionType=vioype.violationeName and vioype.deptid=$companyId";
++                $fixedCondtion .= " where $deptlevel=$id and $depttype = '$deptid' ) temp on api.driverId=temp.driverid join 
++                 (select * from driving_violation_type_new where deptid=$companyId group by violationName)vioype ON api.actionType=vioype.violationeName and vioype.deptid=$companyId and lineid=$deptid";
+             } else {
+-                $fixedCondtion .= " where $deptlevel=$id ) temp on api.driverId=temp.driverid join driving_violation_type vioype ON api.actionType=vioype.violationeName and vioype.deptid=$companyId";
++                $fixedCondtion .= " where $deptlevel=$id ) temp on api.driverId=temp.driverid join 
++                (select * from driving_violation_type_new where deptid=$companyId group by violationName) vioype ON api.actionType=vioype.violationeName and vioype.deptid=$companyId and lineid=$deptid";
+             };
+             // 总数 车辆 驾驶员
+-            $sqldriver = $sql2 . $fixedCondtion . ' and ' . $dataconditon . " GROUP BY api.driverName $sql2two $fixedCondtion and  $timeconditon   GROUP BY driverName)a GROUP BY stat_date ORDER BY stat_date ASC";
+-            $sqlAll = $sql . $fixedCondtion . ' and ' . $dataconditon . " GROUP BY api.deviceId $sqltwo $fixedCondtion  and  $timeconditon   GROUP BY deviceid )a GROUP BY stat_date ORDER BY stat_date ASC";
++            $sqldriver = $sql2 . $fixedCondtion . ' and ' . $dataconditon . " GROUP BY api.driverName $sql2two $fixedCondtion and  $timeconditon   GROUP BY driverName)a GROUP BY mark ORDER BY mark ASC";
++            $sqlAll = $sql . $fixedCondtion . ' and ' . $dataconditon . " GROUP BY api.deviceId $sqltwo $fixedCondtion  and  $timeconditon   GROUP BY deviceid )a GROUP BY mark ORDER BY mark ASC";
+             $alldata = DB::select($sqlAll);
+             $driverdata = DB::select($sqldriver);
+ 
+ 
+ //本期
+-            if (count($alldata) > 0 && count($driverdata) > 0) {
++
++            if (count($alldata) > 0 && count($driverdata) > 0 && $alldata[0]->mark == 1) {
+                 $rets['all'] = $alldata[0]->allcnt;
+                 $rets['carCnt'] = $alldata[0]->carcnt;
+                 $rets['driverCnt'] = $driverdata[0]->cnt;
++            } else if (count($alldata) > 0 && count($driverdata) > 0 && $alldata[0]->mark == 2) {
++                $beforerets['all'] = $alldata[0]->allcnt;
++                $beforerets['carCnt'] = $alldata[0]->carcnt;
++                $beforerets['driverCnt'] = $driverdata[0]->cnt;
+             }
+ //上期
+             if (count($alldata) == 2 && count($driverdata) == 2) {
+@@ -4335,25 +4699,31 @@ join (select driverid from v_driverinfo   ";
+             return $this->setJsonResponseNew(SUCCESS, $rets, $beforerets);
+         };
+         if ($deptid != null && $depttype != null) {
+-            $fixedCondtion .= " where  $depttype = '$deptid' ) temp on api.driverId=temp.driverid join driving_violation_type vioype ON api.actionType=vioype.violationeName and vioype.deptid=$companyId ";
++            $fixedCondtion .= " where  $depttype = '$deptid' ) temp on api.driverId=temp.driverid join (select * from driving_violation_type_new where deptid=$companyId group by violationName) vioype ON api.actionType=vioype.violationeName and vioype.deptid=$companyId and lineid=$deptid";
+         } else {
+-            $fixedCondtion .= " where 1=1 ) temp on api.driverId=temp.driverid join driving_violation_type vioype ON api.actionType=vioype.violationeName and vioype.deptid=$companyId ";
++            $fixedCondtion .= " where 1=1 ) temp on api.driverId=temp.driverid join (select * from driving_violation_type_new where deptid=$companyId group by violationName) vioype ON api.actionType=vioype.violationeName and vioype.deptid=$companyId and lineid=$deptid";
+         };
+ 
+         // 总数 车辆 驾驶员
+         //$sqldriver = $sql2 . $fixedCondtion . ' and ' . $dataconditon . " GROUP BY api.driverName )a";
+         // $sqlAll = $sql . $fixedCondtion . ' and ' . $dataconditon . " GROUP BY api.deviceId )a ";
+-        $sqldriver = $sql2 . $fixedCondtion . ' and ' . $dataconditon . " GROUP BY api.driverName $sql2two $fixedCondtion and  $timeconditon GROUP BY driverName)a GROUP BY stat_date ORDER BY stat_date ASC";
+-        $sqlAll = $sql . $fixedCondtion . ' and ' . $dataconditon . " GROUP BY api.deviceId $sqltwo $fixedCondtion  and  $timeconditon   GROUP BY deviceid )a GROUP BY stat_date ORDER BY stat_date ASC";
++        $sqldriver = $sql2 . $fixedCondtion . ' and ' . $dataconditon . " GROUP BY api.driverName $sql2two $fixedCondtion and  $timeconditon GROUP BY driverName)a GROUP BY mark ORDER BY mark ASC";
++        $sqlAll = $sql . $fixedCondtion . ' and ' . $dataconditon . " GROUP BY api.deviceId $sqltwo $fixedCondtion  and  $timeconditon   GROUP BY deviceid )a GROUP BY mark ORDER BY mark ASC";
+ 
+ 
+         $alldata = DB::select($sqlAll);
+         $driverdata = DB::select($sqldriver);
++
+ //本期
+-        if (count($alldata) > 0 && count($driverdata) > 0) {
++
++        if (count($alldata) > 0 && count($driverdata) > 0 && $alldata[0]->mark == 1) {
+             $rets['all'] = $alldata[0]->allcnt;
+             $rets['carCnt'] = $alldata[0]->carcnt;
+             $rets['driverCnt'] = $driverdata[0]->cnt;
++        } else if (count($alldata) > 0 && count($driverdata) > 0 && $alldata[0]->mark == 2) {
++            $beforerets['all'] = $alldata[0]->allcnt;
++            $beforerets['carCnt'] = $alldata[0]->carcnt;
++            $beforerets['driverCnt'] = $driverdata[0]->cnt;
+         }
+ //上期
+         if (count($alldata) == 2 && count($driverdata) == 2) {
+@@ -4365,6 +4735,22 @@ join (select driverid from v_driverinfo   ";
+ 
+     }
+ 
++    /**
++     *API: api/statistic/getDangerViolationRank
++     * @name: 危险驾驶排名表
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: depttype,description:机构类型
++     *parameter2: deptid,description:机构ID
++     *parameter3: page,description:页码
++     *parameter4: count,description:行数
++     *parameter5: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getDangerViolationRank(\Illuminate\Http\Request $request)
+     {
+ 
+@@ -4400,13 +4786,15 @@ join (select driverid from v_driverinfo   ";
+         $startDay = $timeArr['startDay'];
+         $endDay = $timeArr['endDay'];
+         //获取用户id
+-        $userdeptid = $this->getUserIdViolationType();
++        //$userdeptid = $this->getUserIdViolationType();
++        $userdeptid=DB::table("v_lineinfo")->where($depttype,"=",$deptid)->select("companyDeptId")->first()->companyDeptId;
+ 
+         //获取违规类型
+-        $dangerData = DB::table('driving_violation_type')
++        $dangerData = DB::table('driving_violation_type_new')
+             ->where('deptid', '=', $userdeptid)
+-            ->where('dangerType', '=', '1')
++            ->where('violationrank', '=', '1')
+             ->select('violationeName')
++            ->groupBy('violationeName')
+             ->get();
+         $dangerDataArr = [];
+         for ($i = 0; $i < count($dangerData); $i++) {
+@@ -4458,6 +4846,22 @@ join (select driverid from v_driverinfo   ";
+ 
+     }
+ 
++    /**
++     *API: api/statistic/getDamageViolationRank
++     * @name: 损车驾驶排名表
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: depttype,description:机构类型
++     *parameter2: deptid,description:机构ID
++     *parameter3: page,description:页码
++     *parameter4: count,description:行数
++     *parameter5: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getDamageViolationRank(\Illuminate\Http\Request $request)
+     {
+ 
+@@ -4491,13 +4895,15 @@ join (select driverid from v_driverinfo   ";
+         $startDay = $timeArr['startDay'];
+         $endDay = $timeArr['endDay'];
+         //获取用户id
+-        $userdeptid = $this->getUserIdViolationType();
++        // $userdeptid = $this->getUserIdViolationType();
++        $userdeptid=DB::table("v_lineinfo")->where($depttype,"=",$deptid)->select("companyDeptId")->first()->companyDeptId;
+ 
+         //获取违规类型
+-        $dangerData = DB::table('driving_violation_type')
++        $dangerData = DB::table('driving_violation_type_new')
+             ->where('deptid', '=', $userdeptid)
+-            ->where('damageType', '=', '1')
++            ->where('violationrank', '=', '3')
+             ->select('violationeName')
++            ->groupBy('violationeName')
+             ->get();
+         $dangerDataArr = [];
+         for ($i = 0; $i < count($dangerData); $i++) {
+@@ -4547,6 +4953,22 @@ join (select driverid from v_driverinfo   ";
+         return $data;
+     }
+ 
++    /**
++     *API: api/statistic/getBadServiceViolationRank
++     * @name: 不良驾驶排名表
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: depttype,description:机构类型
++     *parameter2: deptid,description:机构ID
++     *parameter3: page,description:页码
++     *parameter4: count,description:行数
++     *parameter5: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getBadServiceViolationRank(\Illuminate\Http\Request $request)
+     {
+ 
+@@ -4581,13 +5003,15 @@ join (select driverid from v_driverinfo   ";
+         $startDay = $timeArr['startDay'];
+         $endDay = $timeArr['endDay'];
+         //获取用户id
+-        $userdeptid = $this->getUserIdViolationType();
++        //$userdeptid = $this->getUserIdViolationType();
++        $userdeptid=DB::table("v_lineinfo")->where($depttype,"=",$deptid)->select("companyDeptId")->first()->companyDeptId;
+ 
+         //获取违规类型
+-        $dangerData = DB::table('driving_violation_type')
++        $dangerData = DB::table('driving_violation_type_new')
+             ->where('deptid', '=', $userdeptid)
+-            ->where('badServiceType', '=', '1')
++            ->where('violationrank', '=', '4')
+             ->select('violationeName')
++            ->groupBy('violationeName')
+             ->get();
+         $dangerDataArr = [];
+         for ($i = 0; $i < count($dangerData); $i++) {
+@@ -4709,7 +5133,23 @@ join (select driverid from v_driverinfo   ";
+ 
+     }
+ 
+-// 获取某种违规类型下所有小 违规类型趋势图
++    /**
++     *API: api/statistic/getViolationTrendsForType
++     * @name: 获取某种违规类型下所有小 违规类型趋势图
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: depttype,description:机构类型
++     *parameter2: deptid,description:机构ID
++     *parameter3: type,description:图形类型
++     *parameter4: violationtype,description:违规类型
++     *parameter5: top,description:类型
++     *parameter6: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getViolationTrendsForType(\Illuminate\Http\Request $request)
+     {
+         $rules = [
+@@ -4755,24 +5195,29 @@ join (select driverid from v_driverinfo   ";
+             }
+             if (!isset($data['driverId'])) $data['driverId'] = [];
+         }
++
+         $timeType = $data['timeType'];
+         $violationtype = $data['violationtype'];
+ 
+         switch ($violationtype) {
+             case 0://危险驾驶
+-                $violationtype = "dangerType";
++                //$violationtype = "dangerType";
++                $violationtype = "1";
+                 break;
+             case 1://损车驾驶
+-                $violationtype = "damageType";
++                // $violationtype = "damageType";
++                $violationtype = "3";
+                 break;
+             case 2://不良服务
+-                $violationtype = "badServiceType";
++                // $violationtype = "badServiceType";
++                $violationtype = "4";
+                 break;
+             case 3:
+                 $violationtype = -1;
+                 break;
+         }
+-        $userdeptid = $this->getUserIdViolationType();
++        // $userdeptid = $this->getUserIdViolationType();
++        $userdeptid=DB::table("v_lineinfo")->where($depttype,"=",$deptid)->select("companyDeptId")->first()->companyDeptId;
+ 
+         //获取时间数组
+         $timeDay = $this->timeTypeConversion($timeType);
+@@ -4793,15 +5238,17 @@ join (select driverid from v_driverinfo   ";
+ 
+         //获取选中类型下定义的违规名称
+         if ($violationtype != -1) {
+-            $vioType = DB::table('driving_violation_type')
++            $vioType = DB::table('driving_violation_type_new')
+                 ->select('violationeName')
+                 ->where('deptid', '=', $userdeptid)
+-                ->where($violationtype, '=', '1')
++                ->where('violationrank', '=', $violationtype)
++                ->groupBy('violationeName')
+                 ->get();
+         } else {
+-            $vioType = DB::table('driving_violation_type')
++            $vioType = DB::table('driving_violation_type_new')
+                 ->select('violationeName')
+                 ->where('deptid', '=', $userdeptid)
++                ->groupBy('violationeName')
+                 ->get();
+         }
+ 
+@@ -4822,7 +5269,8 @@ join (select driverid from v_driverinfo   ";
+             if (isset($data['top'])) {
+                 $take = $data['top'];
+             }
+-            $vioTypeTop = DB::table('stat_driving_violation_detail');
++            $vioTypeTop = DB::table('stat_driving_violation_detail')
++                ->where($depttype,'=',$deptid);
+             if (isset($data['driverId'])) {
+                 $vioTypeTop = $vioTypeTop->whereIn('driverId', $data['driverId']);
+             } else {
+@@ -4844,7 +5292,8 @@ join (select driverid from v_driverinfo   ";
+                 $vioTypeTopVal[] = $vioTypeTop[$i]->actiontype;
+             }
+ 
+-            $vioData = DB::table('stat_driving_violation_detail');
++            $vioData = DB::table('stat_driving_violation_detail')
++                ->where($depttype,'=',$deptid);
+             $vioData = $vioData->whereIn('actiontype', $vioTypeTopVal);
+             $vioData = $vioData->where('stat_date', '=', $startDay);
+             if (isset($data['driverId'])) {
+@@ -4893,7 +5342,9 @@ join (select driverid from v_driverinfo   ";
+             if (isset($data['top'])) {
+                 $take = $data['top'];
+             }
+-            $vioTypeTop = DB::table('stat_driving_violation_day');
++            $vioTypeTop = DB::table('stat_driving_violation_day')
++                ->join('t_mauth_dept','stat_driving_violation_day.lineId','=','t_mauth_dept.lineDeptId')
++                ->where($depttype,'=',$deptid);
+             if (isset($data['driverId'])) {
+                 $vioTypeTop = $vioTypeTop->whereIn('driverId', $data['driverId']);
+             } else {
+@@ -4915,13 +5366,9 @@ join (select driverid from v_driverinfo   ";
+             for ($i = 0; $i < count($vioTypeTop); $i++) {
+                 $vioTypeTopVal[] = $vioTypeTop[$i]->actiontype;
+             }
+-            if ($depttype == 'lineDeptid' || $depttype == 'lineDeptId') {
+-                $depttype = 'lineId';
+-            }
+-            if ($depttype == 'groupDeptid' || $depttype == 'groupDeptId') {
+-                $depttype = 'groupId';
+-            }
+-            $vioData = DB::table('stat_driving_violation_day');
++            $vioData = DB::table('stat_driving_violation_day')
++                ->join('t_mauth_dept','stat_driving_violation_day.lineId','=','t_mauth_dept.lineDeptId')
++                ->where($depttype,'=',$deptid);
+             $vioData = $vioData->whereIn('actionType', $vioTypeTopVal);
+             if (isset($data['driverId'])) {
+                 $vioData = $vioData->whereIn('driverId', $data['driverId']);
+@@ -4970,13 +5417,9 @@ join (select driverid from v_driverinfo   ";
+             if (isset($data['top'])) {
+                 $take = $data['top'];
+             }
+-            if ($depttype == 'lineDeptid' || $depttype == 'lineDeptId') {
+-                $depttype = 'lineId';
+-            }
+-            if ($depttype == 'groupDeptid' || $depttype == 'groupDeptId') {
+-                $depttype = 'groupId';
+-            }
+-            $vioTypeTop = DB::table('stat_driving_violation_summary');
++            $vioTypeTop = DB::table('stat_driving_violation_summary')
++                ->join('t_mauth_dept','stat_driving_violation_summary.lineId','=','t_mauth_dept.lineDeptId')
++                ->where($depttype,'=',$deptid);
+             $vioTypeTop = $vioTypeTop->whereIn('actiontype', $vioTypeVal);
+ 
+             if (isset($data['driverId'])) {
+@@ -4995,7 +5438,9 @@ join (select driverid from v_driverinfo   ";
+             for ($i = 0; $i < count($vioTypeTop); $i++) {
+                 $vioTypeTopVal[] = $vioTypeTop[$i]->actiontype;
+             }
+-            $vioData = DB::table('stat_driving_violation_summary');
++            $vioData = DB::table('stat_driving_violation_summary')
++                ->join('t_mauth_dept','stat_driving_violation_summary.lineId','=','t_mauth_dept.lineDeptId')
++                ->where($depttype,'=',$deptid);
+             if ($take != -1) {
+                 $vioData = $vioData->whereIn('actionType', $vioTypeTopVal);
+             }
+@@ -5039,9 +5484,19 @@ join (select driverid from v_driverinfo   ";
+     }
+ 
+     /**
+-     * @param \Illuminate\Http\Request $request
+-     * @return \Illuminate\Http\JsonResponse
+-     * @throws \App\Exceptions\ParamException司机画像--违规分析
++     *API: api/statistic/getViolationTrendsGrouped
++     * @name: 违规趋势图
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: depttype,description:机构类型
++     *parameter2: deptid,description:机构ID
++     *parameter3: type,description:图形类型
++     *parameter4: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
+      */
+     public function getViolationTrendsGrouped(\Illuminate\Http\Request $request)
+     {
+@@ -5081,7 +5536,8 @@ join (select driverid from v_driverinfo   ";
+             }
+         }
+         $timeType = $data['timeType'];
+-        $userdeptid = $this->getUserIdViolationType();
++        //$userdeptid = $this->getUserIdViolationType();
++        $userdeptid=DB::table("v_lineinfo")->where($depttype,"=",$deptid)->select("companyDeptId")->first()->companyDeptId;
+         $timeDay = $this->timeTypeConversion($timeType);
+         $startDay = $timeDay['startDay'];
+         $endDay = $timeDay['endDay'];
+@@ -5121,6 +5577,7 @@ join (select driverid from v_driverinfo   ";
+         //当页面选中为timeType=0，昨天时，数据从stat_driving_violation_detail统计
+         if ($timeType == 0) {
+             $dangerData = DB::table('stat_driving_violation_detail')
++                ->where($depttype,'=',$deptid)
+                 ->whereIn('actiontype', $dangerTypeVal);
+ 
+             if (isset($data['driverId'])) {
+@@ -5133,6 +5590,7 @@ join (select driverid from v_driverinfo   ";
+                 ->selectRaw('DATE_FORMAT(begin_time,\'%H\') as time,count(actiontype) as actiontypeSum')
+                 ->get();
+             $damageData = DB::table('stat_driving_violation_detail')
++                ->where($depttype,'=',$deptid)
+                 ->whereIn('actiontype', $damageTypeVal);
+             if (isset($data['driverId'])) {
+                 $damageData = $damageData->whereIn('driverId', $data['driverId']);
+@@ -5144,6 +5602,7 @@ join (select driverid from v_driverinfo   ";
+                 ->selectRaw('DATE_FORMAT(begin_time,\'%H\') as time,count(actiontype) as actiontypeSum')
+                 ->get();
+             $badServiceData = DB::table('stat_driving_violation_detail')
++                ->where($depttype,'=',$deptid)
+                 ->whereIn('actiontype', $badServiceTypeVal);
+             if (isset($data['driverId'])) {
+                 $badServiceData = $badServiceData->whereIn('driverId', $data['driverId']);
+@@ -5192,6 +5651,8 @@ join (select driverid from v_driverinfo   ";
+                 $dt_start = strtotime('+1 day', $dt_start);
+             }
+             $dangerData = DB::table('stat_driving_violation_day')
++                ->join('t_mauth_dept','stat_driving_violation_day.lineId','=','t_mauth_dept.lineDeptId')
++                ->where($depttype,'=',$deptid)
+                 ->whereIn('actionType', $dangerTypeVal);
+             if (isset($data['driverId'])) {
+                 $dangerData = $dangerData->whereIn('driverId', $data['driverId']);
+@@ -5203,6 +5664,8 @@ join (select driverid from v_driverinfo   ";
+                 ->selectRaw('sum(totalNum) as totalSum,stat_date')
+                 ->get();
+             $damageData = DB::table('stat_driving_violation_day')
++                ->join('t_mauth_dept','stat_driving_violation_day.lineId','=','t_mauth_dept.lineDeptId')
++                ->where($depttype,'=',$deptid)
+                 ->whereIn('actionType', $damageTypeVal);
+             if (isset($data['driverId'])) {
+                 $damageData = $damageData->whereIn('driverId', $data['driverId']);
+@@ -5214,6 +5677,8 @@ join (select driverid from v_driverinfo   ";
+                 ->selectRaw('sum(totalNum) as totalSum,stat_date')
+                 ->get();
+             $badServiceData = DB::table('stat_driving_violation_day')
++                ->join('t_mauth_dept','stat_driving_violation_day.lineId','=','t_mauth_dept.lineDeptId')
++                ->where($depttype,'=',$deptid)
+                 ->whereIn('actionType', $badServiceTypeVal);
+             if (isset($data['driverId'])) {
+                 $badServiceData = $badServiceData->whereIn('driverId', $data['driverId']);
+@@ -5264,6 +5729,8 @@ join (select driverid from v_driverinfo   ";
+                 $temp = date("Y-m-d", strtotime("+1 months", strtotime($temp)));
+             }
+             $dangerData = DB::table('stat_driving_violation_summary')
++                ->join('t_mauth_dept','stat_driving_violation_summary.lineId','=','t_mauth_dept.lineDeptId')
++                ->where($depttype,'=',$deptid)
+                 ->whereIn('actionType', $dangerTypeVal);
+             if (isset($data['driverId'])) {
+                 $dangerData = $dangerData->whereIn('driverId', $data['driverId']);
+@@ -5275,6 +5742,8 @@ join (select driverid from v_driverinfo   ";
+                 ->selectRaw('sum(totalNum) as totalSum,stat_date')
+                 ->get();
+             $damageData = DB::table('stat_driving_violation_summary')
++                ->join('t_mauth_dept','stat_driving_violation_summary.lineId','=','t_mauth_dept.lineDeptId')
++                ->where($depttype,'=',$deptid)
+                 ->whereIn('actionType', $damageTypeVal);
+             if (isset($data['driverId'])) {
+                 $damageData = $damageData->whereIn('driverId', $data['driverId']);
+@@ -5286,6 +5755,8 @@ join (select driverid from v_driverinfo   ";
+                 ->selectRaw('sum(totalNum) as totalSum,stat_date')
+                 ->get();
+             $badServiceData = DB::table('stat_driving_violation_summary')
++                ->join('t_mauth_dept','stat_driving_violation_summary.lineId','=','t_mauth_dept.lineDeptId')
++                ->where($depttype,'=',$deptid)
+                 ->whereIn('actionType', $badServiceTypeVal);
+             if (isset($data['driverId'])) {
+                 $badServiceData = $badServiceData->whereIn('driverId', $data['driverId']);
+@@ -5403,25 +5874,42 @@ join (select driverid from v_driverinfo   ";
+     public function getViolationType($userdeptid)
+     {
+         //获取用户绑定的违规类型
+-        $dangerType = DB::table('driving_violation_type')
++        $dangerType = DB::table('driving_violation_type_new')
+             ->select('violationeName')
+             ->where('deptid', '=', $userdeptid)
+-            ->where('dangerType', '=', '1')
++            ->where('violationrank', '=', '1')
++            ->groupBy('violationrank')
+             ->get();
+-        $damageType = DB::table('driving_violation_type')
++        $damageType = DB::table('driving_violation_type_new')
+             ->select('violationeName')
+             ->where('deptid', '=', $userdeptid)
+-            ->where('damageType', '=', '1')
++            ->where('violationrank', '=', '3')
++            ->groupBy('violationrank')
+             ->get();
+-        $badServiceType = DB::table('driving_violation_type')
++        $badServiceType = DB::table('driving_violation_type_new')
+             ->select('violationeName')
+             ->where('deptid', '=', $userdeptid)
+-            ->where('badServiceType', '=', '1')
++            ->where('violationrank', '=', '4')
++            ->groupBy('violationrank')
+             ->get();
+         return ['dangerType' => $dangerType, 'damageType' => $damageType, 'badServiceType' => $badServiceType];
+     }
+ 
+-    // 黑点比例图
++    /**
++     *API: api/statistic/getBlankZoneChart
++     * @name: 黑点比例图
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: depttype,description:机构类型
++     *parameter2: deptid,description:机构ID
++     *parameter3: blankzonetype,description:黑点类型
++     *parameter4: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getBlankZoneChart(\Illuminate\Http\Request $request)
+     {
+ 
+@@ -5564,7 +6052,6 @@ join (select driverid from v_driverinfo   ";
+             //
+             if ($lineDeptVal != null) {
+                 $sql .= " where lineDeptId in (" . $lineDeptVal . ")" . " and " . $dataconditon . $bzCondition;
+-
+                 $records = (array)CacheUtil::getDataFromCacheOrDatabase($sql);
+             } else {
+                 $records = null;
+@@ -5616,7 +6103,6 @@ join (select driverid from v_driverinfo   ";
+             $actiontypeDesc = $records[$i]->actiontypeDesc;
+             $rets["$actiontypeDesc"] = $records[$i]->cnt;
+         }
+-
+         if (empty($rets)) {
+             return $this->setJsonResponse(REPEAT, $records);
+         }
+@@ -5624,7 +6110,21 @@ join (select driverid from v_driverinfo   ";
+ 
+     }
+ 
+-    // 黑点地图 次数
++    /**
++     *API: api/statistic/getBlankZoneMap
++     * @name: 黑点地图 次数
++     * @author:
++     * @edittime:
++     * @mode: post
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: depttype,description:机构类型
++     *parameter2: deptid,description:机构ID
++     *parameter3: blankzonetype,description:黑点类型
++     *parameter4: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getBlankZoneMap(\Illuminate\Http\Request $request)
+     {
+ 
+@@ -5827,6 +6327,23 @@ join (select driverid from v_driverinfo   ";
+ 
+     }
+ 
++    /**
++     *API: api/statistic/getBlankZoenViolationRank
++     * @name: 黑点违规排名
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: deptid,description:机构ID
++     *parameter2: depttype,description:机构类型
++     *parameter3: page,description:页码
++     *parameter4: count,description:行数
++     *parameter5: blankzonetype,description:黑点区域类型
++     *parameter6: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getBlankZoenViolationRank(\Illuminate\Http\Request $request)
+     {
+         $rules = [
+@@ -6035,7 +6552,21 @@ INNER JOIN t_mauth_dept c ON b.deptId = c.lineDeptId    ";
+         return $data;
+     }
+ 
+-    // 黑点趋势图图
++    /**
++     *API: api/statistic/getBlankZoneTrend
++     * @name: 黑点趋势图
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: depttype,description:机构类型
++     *parameter2: deptid,description:机构ID
++     *parameter3: blankzonetype,description:黑点类型
++     *parameter4: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getBlankZoneTrend(\Illuminate\Http\Request $request)
+     {
+         $rules = [
+@@ -6267,7 +6798,21 @@ FROM stat_driving_violation_detail  ";
+ 
+     }
+ 
+-    // 黑点趋势图图 整点 按开始时间
++    /**
++     *API: api/statistic/getBlankZoneTrendForHour
++     * @name: 黑点趋势图图 整点 按开始时间
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: depttype,description:机构类型
++     *parameter2: deptid,description:机构ID
++     *parameter3: blankzonetype,description:黑点类型
++     *parameter4: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getBlankZoneTrendForHour(\Illuminate\Http\Request $request)
+     {
+ 
+@@ -6507,21 +7052,27 @@ INNER JOIN t_mauth_dept c ON b.deptId = c.lineDeptId ";
+ 
+     }
+ 
++    /**
++     *API: api/statistic/getViolationDriver
++     * @name: 违规排行
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: deptid,description:线路ID
++     *parameter2: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getViolationDriver(\Illuminate\Http\Request $request)
+     {
+-// 针对司机
+-
+ // 判断用户等级
+-
+-
+         $dept = Mauth\User::find(Auth::user()->user_id)
+             ->getUserDept()->first();
+-
+-
+         // 确定用户等级机构参数
+         $deptlevel = null;
+         switch ($dept['level']) {
+-
+             case 0:
+                 break;
+             case 1:
+@@ -6540,7 +7091,15 @@ INNER JOIN t_mauth_dept c ON b.deptId = c.lineDeptId ";
+                 $deptlevel = "lineDeptId";
+                 $id = $dept['dept_id'];
+                 break;
++        }
+ 
++        $deptid = $request->get('deptid');
++        $depttype = $request->get('depttype');
++        $sqlType = "SELECT violationName FROM driving_violation_type_new ";
++        if (isset($id)) {
++            $sqlType .= "where deptid=$id ";
++        } else {
++            $sqlType .= "where deptid=-1";
+         }
+         // sql 头部
+         $sql = "SELECT
+@@ -6551,62 +7110,43 @@ INNER JOIN t_mauth_dept c ON b.deptId = c.lineDeptId ";
+   SUM(scores) AS score,
+   SUM((CASE `stat_driving_violation_day`.`actiontypeDesc` WHEN '急刹车' THEN `stat_driving_violation_day`.`totalNum` ELSE 0 END)) AS `suddenlyBraking`,
+   SUM((CASE `stat_driving_violation_day`.`actiontypeDesc` WHEN '急加速' THEN `stat_driving_violation_day`.`totalNum` ELSE 0 END)) AS `suddenlySpeedUp`,
+-
+   SUM((CASE `stat_driving_violation_day`.`actiontypeDesc` WHEN '夜间不开大灯' THEN `stat_driving_violation_day`.`totalNum` ELSE 0 END)) AS `headLightOffAtNight`,
+   SUM((CASE `stat_driving_violation_day`.`actiontypeDesc` WHEN '超速' THEN `stat_driving_violation_day`.`totalNum` ELSE 0 END)) AS `overspeed`,
+   SUM((CASE `stat_driving_violation_day`.`actiontypeDesc` WHEN '起步不关车门' THEN `stat_driving_violation_day`.`totalNum` ELSE 0 END)) AS `startWithDoorOpen`,
+   SUM((CASE `stat_driving_violation_day`.`actiontypeDesc` WHEN '车辆未停稳开车门' THEN `stat_driving_violation_day`.`totalNum` ELSE 0 END)) AS `openDoorNotStopYet`,
+-
+   SUM((CASE `stat_driving_violation_day`.`actiontypeDesc` WHEN '启动无刹车' THEN `stat_driving_violation_day`.`totalNum` ELSE 0 END)) AS `startWithoutBrake`
+-
+-FROM `stat_driving_violation_day`  WHERE   driverId IN(select driverid as driverId from v_driverinfo  ";
+-
+-
+-        // 要查询的机构
+-        $deptid = $request->get('deptid');
+-        $depttype = $request->get('depttype');
++FROM `stat_driving_violation_day` inner join t_mauth_dept on t_mauth_dept.lineDeptId= stat_driving_violation_day.lineId and t_mauth_dept.companyDeptId=
++stat_driving_violation_day.companyId and t_mauth_dept.subCompanyDeptId=stat_driving_violation_day.subCompanyId and t_mauth_dept.groupDeptId=stat_driving_violation_day.groupId
++WHERE actiontypeDesc in($sqlType group by violationeName ) and driverId IN(select driverid as driverId from v_driverinfo  ";
+         // 为了首页 只显示线路
+         if (empty($depttype)) {
+             $depttype = 'lineDeptid';
+         };
+-
+-
+         // 确定时间参数
+         $datatype = 0;
+         $jj = $request->get('timeType');
+         if ($jj != null) {
+             $datatype = $request->get('timeType');
+         };
+-
+         switch ($datatype) {
+             case 0: //last day
+                 $dataconditon = " stat_date= CURRENT_DATE()-interval 1 day ";
+-
+-
+                 break;
+             case 1:  // 7day
+-
+                 $dataconditon = " stat_date>= CURRENT_DATE()-interval 7 day and stat_date< CURRENT_DATE()";
+-
+-                // 关联表
+-
+                 break;
+             case 2:  // this month
+                 $dataconditon = " stat_date>=CURRENT_DATE() - interval day(CURRENT_DATE())-1 day and stat_date< CURRENT_DATE()";
+-
+                 break;
+             case 3:  // last month
+                 $dataconditon = " stat_date>=CURRENT_DATE() - interval day(CURRENT_DATE())-1 day - interval 1 month and stat_date< CURRENT_DATE() - interval day(CURRENT_DATE())-1 day";
+-
+                 break;
+             case 4: // this year
+                 $dataconditon = " stat_date>=CURRENT_DATE() - interval day(CURRENT_DATE())-1 day - interval month(CURRENT_DATE()) -1 month and stat_date< CURRENT_DATE() ";
+-
+                 break;
+             case 5: // last year
+                 $dataconditon = " stat_date>=CURRENT_DATE() - interval day(CURRENT_DATE())-1 day - interval month(CURRENT_DATE()) -1 month - interval 1 year and 
+                 stat_date< CURRENT_DATE() - interval day(CURRENT_DATE())-1 day - interval month(CURRENT_DATE()) -1 month";
+-
+                 break;
+ 
+         }
+@@ -6614,34 +7154,22 @@ FROM `stat_driving_violation_day`  WHERE   driverId IN(select driverid as driver
+ // 如果用户等级不是 顶级则
+         if ($deptlevel != null) {
+             if ($deptid != null && $depttype != null) {
+-                $fixedCondtion = " where $deptlevel=$id and $depttype = '$deptid' ) ";
++                $fixedCondtion = " where $deptlevel=$id and $depttype = '$deptid' ) and $deptlevel=$id and $depttype = '$deptid'";
+             } else {
+-                $fixedCondtion = " where $deptlevel=$id) ";
++                $fixedCondtion = " where $deptlevel=$id)and $deptlevel=$id ";
+             };
+-            //
+             $sql .= $fixedCondtion . " and " . $dataconditon . $fixed;
+-
+-//dd($sql);
+             $records = DB::select($sql);
+-
+-
+             return $this->setJsonResponse(SUCCESS, $records);
+         };
+         if ($deptid != null && $depttype != null) {
+-            $fixedCondtion = " where  $depttype = '$deptid' ) ";
++            $fixedCondtion = " where  $depttype = '$deptid' ) and  $depttype = '$deptid'";
+         } else {
+             $fixedCondtion = " where 1=1 )";
+         };
+-        //
+         $sql .= $fixedCondtion . " and " . $dataconditon . $fixed;
+-
+-
+         $records = DB::select($sql);
+-
+-
+         return $this->setJsonResponse(SUCCESS, $records);
+-
+-
+     }
+ 
+     public function getViolationDriverForDanger(\Illuminate\Http\Request $request)
+@@ -6681,7 +7209,7 @@ FROM `stat_driving_violation_day`  WHERE   driverId IN(select driverid as driver
+         // sql 头部
+         $sql = "SELECT   @r:=@r+1 AS rank,d.lineName,a.drivername,a.times FROM
+  ( SELECT     `api_violation`.`driverName`     AS `drivername`,deptId,  SUM(total) AS times FROM `api_violation`  
+-  WHERE   actiontypeDesc  IN (SELECT violationName FROM driving_violation_type WHERE deptid=$userdeptid and dangerType =1) and vehicleNO IN(SELECT vehicleNO FROM t_vehicleinfo b 
++  WHERE   actiontypeDesc  IN (SELECT violationName FROM driving_violation_type_new WHERE deptid=$userdeptid and violationrank ='1'group by violationName) and vehicleNO IN(SELECT vehicleNO FROM t_vehicleinfo b 
+ INNER JOIN v_lineinfo c ON b.deptId = c.lineDeptId  ";
+         // 要查询的机构
+         $deptid = $request->get('deptid');
+@@ -6779,7 +7307,7 @@ INNER JOIN v_lineinfo c ON b.deptId = c.lineDeptId  ";
+         // sql 头部
+         $sql = "SELECT   @r:=@r+1 AS rank,d.lineName,a.drivername,a.times FROM
+  ( SELECT     `api_violation`.`driverName`     AS `drivername`,deptId,  SUM(total) AS times FROM `api_violation`  
+-  WHERE   actiontypeDesc  IN (SELECT violationName FROM driving_violation_type WHERE deptid=$userdeptid and damageType =1) and vehicleNO IN(SELECT vehicleNO FROM t_vehicleinfo b 
++  WHERE   actiontypeDesc  IN (SELECT violationName FROM driving_violation_type_new WHERE deptid=$userdeptid and violationrank ='3'group by violationName) and vehicleNO IN(SELECT vehicleNO FROM t_vehicleinfo b 
+ INNER JOIN v_lineinfo c ON b.deptId = c.lineDeptId  ";
+         // 要查询的机构
+         $deptid = $request->get('deptid');
+@@ -6877,7 +7405,7 @@ INNER JOIN v_lineinfo c ON b.deptId = c.lineDeptId  ";
+         // sql 头部
+         $sql = "SELECT   @r:=@r+1 AS rank,d.lineName,a.drivername,a.times FROM
+  ( SELECT     `api_violation`.`driverName`     AS `drivername`,deptId,  SUM(total) AS times FROM `api_violation`  
+-  WHERE   actiontypeDesc  IN (SELECT violationName FROM driving_violation_type WHERE deptid=$userdeptid and badServiceType =1) and vehicleNO IN(SELECT vehicleNO FROM t_vehicleinfo b 
++  WHERE   actiontypeDesc  IN (SELECT violationName FROM driving_violation_type_new WHERE deptid=$userdeptid and violationrank ='4'group by violationName) and vehicleNO IN(SELECT vehicleNO FROM t_vehicleinfo b 
+ INNER JOIN v_lineinfo c ON b.deptId = c.lineDeptId  ";
+         // 要查询的机构
+         $deptid = $request->get('deptid');
+@@ -6991,19 +7519,21 @@ INNER JOIN v_lineinfo c ON b.deptId = c.lineDeptId  ";
+         };
+         $violationtype = $request->get('violationtype');
+         switch ($violationtype) {
+-            case 0: //last day
+-                $violationtype = " dangerType ";
++            case 0:
++                //$violationtype = " dangerType ";
++                $violationtype = "1";
+                 break;
+-            case 1:  // 7day
+-                $violationtype = "damageType ";
+-                // 关联表
++            case 1:
++                // $violationtype = "damageType ";
++                $violationtype = "3";
+                 break;
+-            case 2:  // this month
+-                $violationtype = " badServiceType ";
++            case 2:
++                // $violationtype = " badServiceType ";
++                $violationtype = "4";
+                 break;
+         }
+         $userdeptid = $this->getUserIdViolationType();
+-        $violationconditon = "and  actiontypeDesc  IN (SELECT violationName FROM driving_violation_type WHERE deptid=$userdeptid and $violationtype =1) ";
++        $violationconditon = "and  actiontypeDesc  IN (SELECT violationName FROM driving_violation_type_new WHERE deptid=$userdeptid and violationrank = $violationtype group by violationrank) ";
+ 
+         if ($violationtype == 3) {
+             $violationconditon = "";
+@@ -7139,51 +7669,39 @@ INNER JOIN t_mauth_dept c ON b.deptId = c.lineDeptId  ";
+             $depttype = 'lineDeptid';
+         };
+         $userdeptid = $this->getUserIdViolationType();
+-        $sql1 = "SELECT violationName FROM driving_violation_type WHERE deptid='.$userdeptid.' and dangerType =1";
+-        $violationName = DB::select($sql1);
+-
+-        $violationNameVal = null;
+-        for ($i = 0; $i < count($violationName); $i++) {
+-            $violationNameVal .= "'" . $violationName[$i]->violationName . "'";
+-            if ($i < count($violationName) - 1) {
+-                $violationNameVal .= ',';
+-            }
+-        }
++//        $sql1 = "SELECT violationName FROM driving_violation_type_new WHERE deptid='.$userdeptid.' group by violationName";
++//        $violationName = DB::select($sql1);
++//        $violationNameVal = null;
++//        for ($i = 0; $i < count($violationName); $i++) {
++//            $violationNameVal .= "'" . $violationName[$i]->violationName . "'";
++//            if ($i < count($violationName) - 1) {
++//                $violationNameVal .= ',';
++//            }
++//        }
+ 
+-        $violationdanger = "and  actiontypeDesc  IN ($violationNameVal) ";
+-        $violationdamage = "and  actiontypeDesc  IN ($violationNameVal) ";
+-        $violationservice = "and  actiontypeDesc  IN ($violationNameVal) ";
++        $violationdanger = "and  actiontypeDesc  IN (SELECT violationName FROM driving_violation_type_new WHERE deptid='.$userdeptid.'and violationrank= 1 group by violationName) ";
++        $violationdamage = "and  actiontypeDesc  IN (SELECT violationName FROM driving_violation_type_new WHERE deptid='.$userdeptid.'and violationrank= 3 group by violationName) ";
++        $violationservice = "and  actiontypeDesc  IN (SELECT violationName FROM driving_violation_type_new WHERE deptid='.$userdeptid.'and violationrank= 4 group by violationName) ";
+         switch ($datatype) {
+             case 0: //last day
+                 $dataconditon = " stat_date= CURRENT_DATE()-interval 1 day ";
+-
+                 break;
+             case 1:  // 7day
+-
+                 $dataconditon = " stat_date>= CURRENT_DATE()-interval 7 day and stat_date< CURRENT_DATE() ";
+-
+                 break;
+             case 2:  // this month
+-
+                 $dataconditon = " stat_date>=CURRENT_DATE() - interval day(CURRENT_DATE())-1 day and stat_date< CURRENT_DATE() ";
+-
+                 break;
+             case 3:  // last month
+-
+                 $dataconditon = " stat_date>=CURRENT_DATE() - interval day(CURRENT_DATE())-1 day - interval 1 month and stat_date< CURRENT_DATE() - interval day(CURRENT_DATE())-1 day ";
+-
+                 break;
+             case 4: // this year
+-
+                 $dataconditon = " stat_date>=CURRENT_DATE() - interval day(CURRENT_DATE())-1 day - interval month(CURRENT_DATE()) -1 month and stat_date< CURRENT_DATE() ";
+-
+                 break;
+             case 5: // last year
+                 $dataconditon = " stat_date>=CURRENT_DATE() - interval day(CURRENT_DATE())-1 day - interval month(CURRENT_DATE()) -1 month - interval 1 year and 
+                 stat_date< CURRENT_DATE() - interval day(CURRENT_DATE())-1 day - interval month(CURRENT_DATE()) -1 month ";
+-
+                 break;
+-
+         }
+         if ($deptlevel != null) {
+             if ($deptid != null && $depttype != null) {
+@@ -7225,6 +7743,21 @@ INNER JOIN t_mauth_dept c ON b.deptId = c.lineDeptId  ";
+ 
+     }
+ 
++    /**
++     *API: api/statistic/getZhiZhan
++     * @name: 滞站信息统计
++     * @author:
++     * @edittime:
++     * @mode: post
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: deptid,description:机构ID
++     *parameter2: page,description:页码
++     *parameter3: count,description:行数
++     *parameter4: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getZhiZhan(\Illuminate\Http\Request $request)
+     {
+ 
+@@ -7397,9 +7930,23 @@ INNER JOIN v_lineinfo c ON b.deptId = c.lineDeptId   ";
+         return $this->queryRecordsFromViolation($params, "滞站");
+     }
+ 
++    /**
++     *API: api/statistic/exportZhiZhan
++     * @name: 滞站信息导出
++     * @author:
++     * @edittime:
++     * @mode: post
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: deptid,description:机构ID
++     *parameter2: page,description:页码
++     *parameter3: count,description:行数
++     *parameter4: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function exportZhiZhan(\Illuminate\Http\Request $request)
+     {
+-
+         $data = $this->getRecordsfromZhiZhan($this->params);//分页
+ 
+         //明细报表-站点违规 只能选择线路，调用该接口时未传参数depttype
+@@ -7437,6 +7984,7 @@ INNER JOIN v_lineinfo c ON b.deptId = c.lineDeptId   ";
+             $lins = [$recordsCompanyName];
+             $data['data'] = $lins;
+         }
++
+         $title = $data['data'][0]->companyName . "---";
+ 
+ 
+@@ -7540,6 +8088,20 @@ INNER JOIN v_lineinfo c ON b.deptId = c.lineDeptId   ";
+         })->export('xlsx');
+     }
+ 
++    /**
++     *API: api/statistic/exportYueZhan
++     * @name: 导出越站列表
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: deptid,description:机构ID
++     *parameter2: count,description:行数
++     *parameter3: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function exportYueZhan(\Illuminate\Http\Request $request)
+     {
+ 
+@@ -7554,7 +8116,6 @@ INNER JOIN v_lineinfo c ON b.deptId = c.lineDeptId   ";
+             $depttype = "lineDeptId";
+         }
+ 
+-
+         $records = end($data);
+ 
+         \Log::info("导出越站列表");
+@@ -7576,7 +8137,6 @@ INNER JOIN v_lineinfo c ON b.deptId = c.lineDeptId   ";
+ 
+ 
+         $datatype = isset($this->params['timeType']) ? $this->params['timeType'] : 6;
+-        //没数据时，根据机构类型与机构id查询总公司名称，拼Excel表头
+         if ($data['data'] == []) {
+             $recordsCompanyName = DB::table('t_mauth_dept')->where($depttype, '=', $this->params['deptid'])->select('companyName')->first();
+             //$recordsCompanyName = DB::table('t_mauth_dept')->where($this->params['depttype'], '=', $this->params['deptid'])->select('companyName')->first();
+@@ -7735,6 +8295,21 @@ INNER JOIN v_lineinfo c ON b.deptId = c.lineDeptId   ";
+          })->export('xlsx');*/
+     }
+ 
++    /**
++     *API: api/statistic/getYueZhan
++     * @name: 越站信息统计
++     * @author:
++     * @edittime:
++     * @mode: post
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: deptid,description:机构ID
++     *parameter2: page,description:页码
++     *parameter3: count,description:行数
++     *parameter4: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getYueZhan(\Illuminate\Http\Request $request)
+     {
+ 
+@@ -7898,6 +8473,20 @@ INNER JOIN v_lineinfo c ON b.deptId = c.lineDeptId   ";
+         return $data;
+     }
+ 
++    /**
++     *API: api/statistic/exportWeiGuiTingKaoZhan
++     * @name: 违规停靠站信息导出
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: deptid,description:机构ID
++     *parameter2: count,description:行数
++     *parameter3: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: Excel
++     * @throws: \App\Exception\ParamException
++     */
+     public function exportWeiGuiTingKaoZhan(\Illuminate\Http\Request $request)
+     {
+ 
+@@ -7912,7 +8501,6 @@ INNER JOIN v_lineinfo c ON b.deptId = c.lineDeptId   ";
+             $depttype = "lineDeptId";
+         }
+ 
+-
+         $records = end($data);
+ 
+         \Log::info("导出违规停靠站列表");
+@@ -8043,6 +8631,21 @@ INNER JOIN v_lineinfo c ON b.deptId = c.lineDeptId   ";
+         })->export('xlsx');
+     }
+ 
++    /**
++     *API: api/statistic/getWeiGuiTingKaoZhan
++     * @name: 违规停靠站信息统计
++     * @author:
++     * @edittime:
++     * @mode: post
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: deptid,description:机构ID
++     *parameter2: page,description:页码
++     *parameter3: count,description:行数
++     *parameter4: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getWeiGuiTingKaoZhan(\Illuminate\Http\Request $request)
+     {
+ 
+@@ -8232,6 +8835,20 @@ from `stat_driving_violation_detail` ";
+         return $this->queryRecordsFromViolation($params, "急刹车");
+     }
+ 
++    /**
++     *API: api/statistic/exportChaoSu
++     * @name: 超速信息导出
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: deptid,description:机构ID
++     *parameter2: count,description:行数
++     *parameter3: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: Excel
++     * @throws: \App\Exception\ParamException
++     */
+     public function exportChaoSu(\Illuminate\Http\Request $request)
+     {
+ 
+@@ -8264,7 +8881,7 @@ from `stat_driving_violation_detail` ";
+         }
+ 
+         $datatype = isset($this->params['timeType']) ? $this->params['timeType'] : 6;
+-
++        //没数据时，根据机构类型与机构id查询总公司名称，拼Excel表头
+         if ($data['data'] == []) {
+             $recordsCompanyName = DB::table('t_mauth_dept')->where($depttype, '=', $this->params['deptid'])->select('companyName')->first();
+             //$recordsCompanyName = DB::table('t_mauth_dept')->where($this->params['depttype'], '=', $this->params['deptid'])->select('companyName')->first();
+@@ -8380,6 +8997,21 @@ from `stat_driving_violation_detail` ";
+         })->export('xlsx');
+     }
+ 
++    /**
++     *API: api/statistic/getChaoSu
++     * @name: 超速信息统计
++     * @author:
++     * @edittime:
++     * @mode: post
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: deptid,description:机构ID
++     *parameter2: page,description:页码
++     *parameter3: count,description:行数
++     *parameter4: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getChaoSu(\Illuminate\Http\Request $request)
+     {
+ 
+@@ -8407,6 +9039,20 @@ from `stat_driving_violation_detail` ";
+         return $data;
+     }
+ 
++    /**
++     *API: api/statistic/exportFenDuan
++     * @name: 分段准点信息导出
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: deptid,description:机构ID
++     *parameter2: count,description:行数
++     *parameter3: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: Excel
++     * @throws: \App\Exception\ParamException
++     */
+     public function exportFenDuan(\Illuminate\Http\Request $request)
+     {
+ 
+@@ -8421,7 +9067,6 @@ from `stat_driving_violation_detail` ";
+             $depttype = "lineDeptId";
+         }
+ 
+-
+         $records = end($data);
+ 
+         \Log::info("导出分段列表");
+@@ -8440,10 +9085,9 @@ from `stat_driving_violation_detail` ";
+         }
+ 
+         $datatype = isset($this->params['timeType']) ? $this->params['timeType'] : 6;
+-        //没数据时，根据机构类型与机构id查询总公司名称，拼Excel表头
+         if ($data['data'] == []) {
+             $recordsCompanyName = DB::table('t_mauth_dept')->where($depttype, '=', $this->params['deptid'])->select('companyName')->first();
+-            //$recordsCompanyName = DB::table('t_mauth_dept')->where($this->params['depttype'], '=', $this->params['deptid'])->select('companyName')->first();
++            //$recordsCompanyName = DB::table('t_mauth_dept')->where($this->params['depttype'], '=', $this->params['deptid'])->select('companyName')->first();mpanyName')->first();
+             $lins = [$recordsCompanyName];
+             $data['data'] = $lins;
+         }
+@@ -8551,6 +9195,21 @@ from `stat_driving_violation_detail` ";
+ 
+     }
+ 
++    /**
++     *API: api/statistic/getFenDuan
++     * @name: 分段准点信息统计
++     * @author:
++     * @edittime:
++     * @mode: post
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: deptid,description:机构ID
++     *parameter2: page,description:页码
++     *parameter3: count,description:行数
++     *parameter4: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getFenDuan(\Illuminate\Http\Request $request)
+     {
+ 
+@@ -8568,7 +9227,19 @@ from `stat_driving_violation_detail` ";
+         return $this->queryRecordsFromViolation($params, "到站超时");
+     }
+ 
+-
++    /**
++     *API: api/statistic/exportXianLuPianYi
++     * @name: 线路偏移导出
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: page,description:页码
++     *parameter2: count,description:行数
++     * @return: Excel
++     * @throws: \App\Exception\ParamException
++     */
+     public function exportXianLuPianYi(\Illuminate\Http\Request $request)
+     {
+ 
+@@ -8702,6 +9373,21 @@ from `stat_driving_violation_detail` ";
+         })->export('xlsx');
+     }
+ 
++    /**
++     *API: api/statistic/getXianLuPianYi
++     * @name: 线路偏移
++     * @author:
++     * @edittime:
++     * @mode: post
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: deptid,description:机构ID
++     *parameter2: page,description:页码
++     *parameter3: count,description:行数
++     *parameter4: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getXianLuPianYi(\Illuminate\Http\Request $request)
+     {
+ 
+@@ -8897,6 +9583,25 @@ INNER JOIN v_lineinfo c ON b.deptId = c.lineDeptId   ";
+         })->export('xlsx');
+     }
+ 
++    /**
++     *API: api/statistic/getDianZiWeiLan
++     * @name: 电子围栏
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: deptid,description:机构ID
++     *parameter2: depttype,description:机构类型
++     *parameter3: page,description:页码
++     *parameter4: count,description:行数
++     *parameter5: startDate,description:开始时间
++     *parameter6: endDate,description:结束时间
++     *parameter7: state,description:状态
++     *parameter8: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getDianZiWeiLan(\Illuminate\Http\Request $request)
+     {
+ 
+@@ -9083,6 +9788,21 @@ INNER JOIN  t_mauth_dept c ON b.deptId = c.lineDeptId   ";
+         return $data;
+     }
+ 
++    /**
++     *API: api/statistic/getAlarmCount
++     * @name: 故障概括
++     * @author:
++     * @edittime:
++     * @mode: post
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     *parameter2: deptid,description:部门ID
++     *parameter3: depttype,description:部门类型 (线路lineDeptid)
++     *parameter4: breaktype,description:故障类型 (动力总成、底盘系统、电气系统、辅助系统)
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getAlarmCount(\Illuminate\Http\Request $request)
+     {
+         // 需要改回，
+@@ -9172,13 +9892,13 @@ INNER JOIN  t_mauth_dept c ON b.deptId = c.lineDeptId   ";
+                 stat_date< CURRENT_DATE() - interval day(CURRENT_DATE())-1 day - interval month(CURRENT_DATE()) -1 month - interval 1 year";
+                 break;
+         }
+-        $sqlper = " SELECT ifnull(SUM(ordinary),0)AS ordinary,ifnull(SUM(serious),0)AS serious,ifnull(SUM(alarm), 0) AS alarm,ifnull(COUNT(vehicleno),0)AS cnt FROM( ";
+-        $sqlend = " AND vehicleno IS NOT NULL GROUP BY vehicleno)z GROUP BY stat_date order by stat_date asc ";
++        $sqlper = " SELECT ifnull(SUM(ordinary),0)AS ordinary,ifnull(SUM(serious),0)AS serious,ifnull(SUM(alarm), 0) AS alarm,ifnull(COUNT(vehicleno),0)AS cnt,mark FROM( ";
++        $sqlend = " AND vehicleno IS NOT NULL GROUP BY vehicleno)z GROUP BY mark order by mark asc ";
+         $sql = "SELECT SUM(IF(alarmLevel IS NULL OR alarmLevel = 0,total,0)) 'ordinary', 
+                       SUM(IF(alarmLevel = 1,total,0)) 'serious',
+                       SUM(IF(alarmLevel = 2,total,0)) 'alarm',
+                       vehicleno,
+-                      1 as stat_date
++                      1 as mark
+         FROM `$tableName` ab INNER JOIN (
+             SELECT alarmtypename FROM `t_vehiclealarmtype` WHERE parenttype LIKE '$breaktype'
+             UNION ALL
+@@ -9189,7 +9909,7 @@ INNER JOIN  t_mauth_dept c ON b.deptId = c.lineDeptId   ";
+                       SUM(IF(alarmLevel = 1,total,0)) 'serious',
+                       SUM(IF(alarmLevel = 2,total,0)) 'alarm',
+                       vehicleno,
+-                      2 as stat_date
++                      2 as mark
+         FROM `$tableName` ab INNER JOIN (
+             SELECT alarmtypename FROM `t_vehiclealarmtype` WHERE parenttype LIKE '$breaktype'
+             UNION ALL
+@@ -9215,7 +9935,7 @@ INNER JOIN  t_mauth_dept c ON b.deptId = c.lineDeptId   ";
+                        SUM(IF(ab.alarmLevel = 1 OR l.alarmLevel=1,total,0)) 'serious',
+                        SUM(IF(ab.alarmLevel = 2 OR l.alarmLevel=2,total,0)) 'alarm',
+                         vehicleno,
+-                       1 AS stat_date
++                       1 AS mark
+         FROM `$tableName` ab INNER JOIN (
+             SELECT alarmname,alarmtypename FROM `t_vehiclealarmtype` WHERE parenttype LIKE '$breaktype'
+             UNION ALL
+@@ -9227,7 +9947,7 @@ INNER JOIN  t_mauth_dept c ON b.deptId = c.lineDeptId   ";
+                        IFNULL(SUM(IF(ab.alarmLevel = 1 OR l.alarmLevel=1,total,0)),0) 'serious',
+                        IFNULL(SUM(IF(ab.alarmLevel = 2 OR l.alarmLevel=2,total,0)),0) 'alarm',
+                        vehicleno,
+-                       2 AS stat_date
++                       2 AS mark
+         FROM `$tableName` ab INNER JOIN (
+             SELECT alarmname,alarmtypename FROM `t_vehiclealarmtype` WHERE parenttype LIKE '$breaktype'
+             UNION ALL
+@@ -9286,21 +10006,27 @@ INNER JOIN  t_mauth_dept c ON b.deptId = c.lineDeptId   ";
+                     $rets1['carInLineRank'] = end($sqlCarInLineRankRecords)->r + 1;
+                 }
+             }
+-
+             $records = DB::select($sql);
+-            //本期
+             if (count($records) > 0) {
+-                $rets1['alarm'] = $records[0]->alarm;
+-                $rets1['car'] = $records[0]->cnt;
+-                $rets1['serious'] = $records[0]->serious;
+-                $rets1['ordinary'] = $records[0]->ordinary;
+-            }
+-            //上期
+-            if (count($records) == 2) {
+-                $datarets1['alarm'] = $records[1]->alarm;
+-                $datarets1['car'] = $records[1]->cnt;
+-                $datarets1['serious'] = $records[1]->serious;
+-                $datarets1['ordinary'] = $records[1]->ordinary;
++                //本期
++                if ($records[0]->mark == 1) {
++                    $rets1['alarm'] = $records[0]->alarm;
++                    $rets1['car'] = $records[0]->cnt;
++                    $rets1['serious'] = $records[0]->serious;
++                    $rets1['ordinary'] = $records[0]->ordinary;
++                } else {
++                    $datarets1['alarm'] = $records[0]->alarm;
++                    $datarets1['car'] = $records[0]->cnt;
++                    $datarets1['serious'] = $records[0]->serious;
++                    $datarets1['ordinary'] = $records[0]->ordinary;
++                }
++                //上期
++                if (count($records) == 2) {
++                    $datarets1['alarm'] = $records[1]->alarm;
++                    $datarets1['car'] = $records[1]->cnt;
++                    $datarets1['serious'] = $records[1]->serious;
++                    $datarets1['ordinary'] = $records[1]->ordinary;
++                }
+             }
+             return $this->setJsonResponseNew(SUCCESS, $rets1, $datarets1);
+         };
+@@ -9338,11 +10064,16 @@ INNER JOIN  t_mauth_dept c ON b.deptId = c.lineDeptId   ";
+         }
+         $records = DB::select($sql);
+         //本期
+-        if (count($records) > 0) {
++        if (count($records) > 0 && $records[0]->mark == 1) {
+             $rets1['alarm'] = $records[0]->alarm;
+             $rets1['car'] = $records[0]->cnt;
+             $rets1['serious'] = $records[0]->serious;
+             $rets1['ordinary'] = $records[0]->ordinary;
++        } else {
++            $datarets1['alarm'] = isset($records[0]->alarm) ? $records[0]->alarm : 0;
++            $datarets1['car'] = isset($records[0]->cnt) ? $records[0]->cnt : 0;
++            $datarets1['serious'] = isset($records[0]->serious) ? $records[0]->serious : 0;
++            $datarets1['ordinary'] = isset($records[0]->ordinary) ? $records[0]->ordinary : 0;
+         }
+         //上期
+         if (count($records) == 2) {
+@@ -9355,8 +10086,23 @@ INNER JOIN  t_mauth_dept c ON b.deptId = c.lineDeptId   ";
+ 
+     }
+ 
+-    public function getBreakCarRank(\Illuminate\Http\Request $request)
+-    {
++    /**
++     *API: api/statistic/getBreakCarRank
++     * @name: 故障车辆排名
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: depttype,description:机构类型
++     *parameter2: deptid,description:机构ID
++     *parameter3: breaktype,description:故障类型
++     *parameter4: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
++    public function getBreakCarRank(\Illuminate\Http\Request $request)
++    {
+ 
+         $records = $this->getRecordsfromBreakCarRank($this->params);//分页
+ 
+@@ -9513,8 +10259,8 @@ INNER JOIN  t_mauth_dept c ON b.deptId = c.lineDeptId   ";
+ 
+         $sql .= " limit $offset , $count";
+ 
+-        $records = (array)CacheUtil::getDataFromCacheOrDatabaseAndSetTime($selectSql . $sql, 20);
+ 
++        $records = (array)CacheUtil::getDataFromCacheOrDatabaseAndSetTime($selectSql . $sql, 20);
+         $data = [
+             'current_page' => $page,
+             'from' => $offset + 1,
+@@ -9530,6 +10276,23 @@ INNER JOIN  t_mauth_dept c ON b.deptId = c.lineDeptId   ";
+         return $data;
+     }
+ 
++    /**
++     *API: api/statistic/getBreakRank
++     * @name: 故障排名
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: depttype,description:机构类型
++     *parameter2: deptid,description:机构ID
++     *parameter3: breaktype,description:故障类型
++     *parameter4: page,description:当前页
++     *parameter5: count,description:分页条数
++     *parameter6: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getBreakRank(\Illuminate\Http\Request $request)
+     {
+ 
+@@ -9709,7 +10472,21 @@ INNER JOIN  t_mauth_dept c ON b.deptId = c.lineDeptId   ";
+         return $data;
+     }
+ 
+-    // 故障比例图
++    /**
++     *API: api/statistic/getAlarmChart
++     * @name: 故障比例图
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: depttype,description:机构类型
++     *parameter2: deptid,description:机构ID
++     *parameter3: breaktype,description:故障类型
++     *parameter4: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getAlarmChart(\Illuminate\Http\Request $request)
+     {
+         // 需要改回
+@@ -9816,7 +10593,6 @@ INNER JOIN  t_mauth_dept c ON b.deptId = c.lineDeptId   ";
+         };
+         //sql整合
+         $sql .= $fixedCondition . " $alarmtypeCondition and " . $dataconditon . "GROUP BY ab.alarmtypename ORDER BY cnt DESC LIMIT 5 ";
+-
+         $records = (array)CacheUtil::getDataFromCacheOrDatabase($sql);
+         if (empty($records)) {
+             return $this->setJsonResponse(REPEAT, $records);
+@@ -9824,7 +10600,21 @@ INNER JOIN  t_mauth_dept c ON b.deptId = c.lineDeptId   ";
+         return $this->setJsonResponse(SUCCESS, $records);
+     }
+ 
+-    // 故障比例图 grouped 一次
++    /**
++     *API: api/statistic/getAlarmWithTypeChart
++     * @name: 大类故障-故障比例-分类一次
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: depttype,description:机构类型
++     *parameter2: deptid,description:机构ID
++     *parameter3: breaktype,description:故障类型
++     *parameter4: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getAlarmWithTypeChart(\Illuminate\Http\Request $request)
+     {
+         // 需要改回
+@@ -9957,7 +10747,21 @@ INNER JOIN  t_mauth_dept c ON b.deptId = c.lineDeptId   ";
+         return $this->setJsonResponse(SUCCESS, $records);
+     }
+ 
+-    // 故障单一趋势图  故障数据
++    /**
++     *API: api/statistic/getAlarmData
++     * @name: 故障单一趋势图  故障数据
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: depttype,description:机构类型
++     *parameter2: deptid,description:机构ID
++     *parameter3: breaktype,description:故障类型
++     *parameter4: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getAlarmData(\Illuminate\Http\Request $request)
+     {
+         $dept['level'] = 0;
+@@ -10218,6 +11022,21 @@ INNER JOIN  t_mauth_dept c ON b.deptId = c.lineDeptId   ";
+         return $this->setJsonResponse(SUCCESS, $arr1);
+     }
+ 
++    /**
++     *API: api/statistic/getCarAlarmTrends
++     * @name: 车辆故障趋势图
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: depttype,description:机构类型
++     *parameter2: deptid,description:机构ID
++     *parameter3: breaktype,description:故障类型
++     *parameter4: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getCarAlarmTrends(\Illuminate\Http\Request $request)
+     {
+         $rules = [
+@@ -10314,6 +11133,21 @@ INNER JOIN  t_mauth_dept c ON b.deptId = c.lineDeptId   ";
+ 
+     }
+ 
++    /**
++     *API: api/statistic/getAlarmAlarmTrends
++     * @name: 大类故障趋势图
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: depttype,description:机构类型
++     *parameter2: deptid,description:机构ID
++     *parameter3: breaktype,description:故障类型
++     *parameter4: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getAlarmAlarmTrends(\Illuminate\Http\Request $request)
+     {
+         $rules = [
+@@ -10550,7 +11384,20 @@ INNER JOIN  t_mauth_dept c ON b.deptId = c.lineDeptId   ";
+ 
+     }
+ 
+-// 待修故障
++    /**
++     *API: api/statistic/getAlarmToday
++     * @name: 待修故障
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: deptid,description:机构ID
++     *parameter2: count,description:行数
++     *parameter3: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getAlarmToDay(\Illuminate\Http\Request $request)
+     {
+ 
+@@ -10673,6 +11520,23 @@ INNER JOIN  t_mauth_dept c ON b.deptId = c.lineDeptId   ";
+ 
+     }
+ 
++    /**
++     *API: api/statistic/getEnergyCount
++     * @name: 能耗获取
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: motorType,description:车辆类型
++     *parameter2: depttype,description:机构类型
++     *parameter3: deptid,description:机构ID
++     *parameter4: page,description:页码
++     *parameter5: count,description:行数
++     *parameter6: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getEnergyCount(\Illuminate\Http\Request $request)
+     {
+         $dept = Mauth\User::find(Auth::user()->user_id)
+@@ -10788,7 +11652,6 @@ INNER JOIN  t_mauth_dept c ON b.deptId = c.lineDeptId   ";
+         $sqlmilesdata = DB::select($sqlmiles);
+         $runtimedata = DB::select($runtime);
+         $car = 1;
+-
+         //本期
+         if ($carlen[0]->carcnt > 0) {
+             $car = $carlen[0]->carcnt;
+@@ -10814,6 +11677,23 @@ INNER JOIN  t_mauth_dept c ON b.deptId = c.lineDeptId   ";
+         return $this->setJsonResponseNew(SUCCESS, $rets, $beforerets);
+     }
+ 
++    /**
++     *API: api/statistic/getEnergyCountInDetail
++     * @name: 能耗获取
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: motorType,description:车辆类型
++     *parameter2: depttype,description:机构类型
++     *parameter3: deptid,description:机构ID
++     *parameter4: page,description:页码
++     *parameter5: count,description:行数
++     *parameter6: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getEnergyCountInDetail(\Illuminate\Http\Request $request)
+     {
+ // 非首页
+@@ -10889,9 +11769,25 @@ INNER JOIN  t_mauth_dept c ON b.deptId = c.lineDeptId   ";
+ 
+     }
+ 
++    /**
++     *API: api/statistic/getHundredEnergy
++     * @name: 百公里能耗
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: motorType,description:车辆类型
++     *parameter2: depttype,description:机构类型
++     *parameter3: deptid,description:机构ID
++     *parameter4: page,description:页码
++     *parameter5: count,description:行数
++     *parameter6: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getHundredEnergy(\Illuminate\Http\Request $request)
+     {
+-
+         $rules = [
+             //     'depttype' , // 机构类型
+             'deptid' => 'required', // 机构ID
+@@ -10964,13 +11860,28 @@ INNER JOIN  t_mauth_dept c ON b.deptId = c.lineDeptId   ";
+         }
+ 
+         $ret = DB::select("select @r as data");
+-
+-
+         return json_decode(($ret[0]->data), TRUE);
+ 
+ 
+     }
+ 
++    /**
++     *API: api/statistic/getOilRank
++     * @name: 油耗排名
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: motorType,description:车辆类型
++     *parameter2: depttype,description:机构类型
++     *parameter3: deptid,description:机构ID
++     *parameter4: page,description:页码
++     *parameter5: count,description:条数
++     *parameter6: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getOilRank(\Illuminate\Http\Request $request)
+     {
+ 
+@@ -11139,7 +12050,6 @@ INNER JOIN t_mauth_dept c ON a.deptid=c.lineDeptId ORDER BY a.oil DESC) d INNER
+             $total = (array)CacheUtil::getDataFromCacheOrDatabase($countSql . $sql)[0];
+             $offset = $count * ($page - 1) <= 0 ? 0 : $count * ($page - 1);
+             $sql .= " limit $offset , $count";
+-            // dd($sql);
+             $records = (array)CacheUtil::getDataFromCacheOrDatabaseAndSetTime($selectSql . $sql, 20);
+             $data = [
+                 'current_page' => $page,
+@@ -11186,6 +12096,23 @@ INNER JOIN t_mauth_dept c ON a.deptid=c.lineDeptId ORDER BY a.oil DESC) d INNER
+         return $data;
+     }
+ 
++    /**
++     *API: api/statistic/getEleRank
++     * @name: 电耗排名
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: motorType,description:车辆类型
++     *parameter2: depttype,description:机构类型
++     *parameter3: deptid,description:机构ID
++     *parameter4: page,description:页码
++     *parameter5: count,description:行数
++     *parameter6: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getEleRank(\Illuminate\Http\Request $request)
+     {
+ 
+@@ -11375,6 +12302,23 @@ INNER JOIN t_mauth_dept c ON a.deptid=c.lineDeptId ORDER BY a.ele DESC) d INNER
+         return $data;
+     }
+ 
++    /**
++     *API: api/statistic/getGasRank
++     * @name: 气耗排名
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: motorType,description:车辆类型
++     *parameter2: depttype,description:机构类型
++     *parameter3: deptid,description:机构ID
++     *parameter4: page,description:页码
++     *parameter5: count,description:行数
++     *parameter6: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getGasRank(\Illuminate\Http\Request $request)
+     {
+ 
+@@ -11534,7 +12478,6 @@ INNER JOIN t_mauth_dept c ON a.deptid=c.lineDeptId ORDER BY a.gas DESC) d INNER
+             $total = (array)CacheUtil::getDataFromCacheOrDatabase($countSql . $sql)[0];
+             $offset = $count * ($page - 1) <= 0 ? 0 : $count * ($page - 1);
+             $sql .= " limit $offset , $count";
+-            // dd($sql);
+             $records = (array)CacheUtil::getDataFromCacheOrDatabaseAndSetTime($selectSql . $sql, 20);
+             $data = [
+                 'current_page' => $page,
+@@ -11581,6 +12524,23 @@ INNER JOIN t_mauth_dept c ON a.deptid=c.lineDeptId ORDER BY a.gas DESC) d INNER
+         return $data;
+     }
+ 
++    /**
++     *API: api/statistic/getMilesRank
++     * @name: 里程排名
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: motorType,description:车辆类型
++     *parameter2: depttype,description:机构类型
++     *parameter3: deptid,description:机构ID
++     *parameter4: page,description:页码
++     *parameter5: count,description:行数
++     *parameter6: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getMilesRank(\Illuminate\Http\Request $request)
+     {
+ 
+@@ -11783,7 +12743,23 @@ INNER JOIN t_mauth_dept c ON a.deptid=c.lineDeptId ORDER BY a.miles DESC) d INNE
+         return $data;
+     }
+ 
+-    // 里程趋势图
++    /**
++     *API: api/statistic/getMilesTrend
++     * @name: 里程趋势图
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: motorType,description:车辆类型
++     *parameter2: depttype,description:机构类型
++     *parameter3: deptid,description:机构ID
++     *parameter4: page,description:页码
++     *parameter5: count,description:行数
++     *parameter6: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getMilesTrend(\Illuminate\Http\Request $request)
+     {
+ // 针对司机
+@@ -11827,12 +12803,17 @@ INNER JOIN t_mauth_dept c ON a.deptid=c.lineDeptId ORDER BY a.miles DESC) d INNE
+ //SELECT SUM(accruedmiles) AS cnt, stat_date FROM (
+ //SELECT accruedmiles, stat_date AS stat_date FROM t_vehiclemiles WHERE vehicledeviceid IN( SELECT deviceid FROM t_vehicleinfo b
+ //INNER JOIN v_lineinfo c ON b.deptId = c.lineDeptId    ";
+-        $sql = "SELECT IFNULL(cnt,0) AS cnt , DATE_FORMAT(stat_date,'%d') AS stat_date FROM
++        /*    $sql = "SELECT IFNULL(cnt,0) AS cnt , DATE_FORMAT(stat_date,'%d') AS stat_date FROM
+ 
+- (
++     (
++    SELECT SUM(miles) AS cnt, stat_date FROM (
++    SELECT miles, stat_date AS stat_date FROM api_energe WHERE vehicleNo IN( SELECT vehicleNo FROM t_vehicleinfo b
++    INNER JOIN t_mauth_dept c ON b.deptId = c.lineDeptId    ";*/
++
++        $sql = "SELECT IFNULL(cnt,0) AS cnt , DATE_FORMAT(stat_date,'%d') AS stat_date FROM(
+ SELECT SUM(miles) AS cnt, stat_date FROM (
+-SELECT miles, stat_date AS stat_date FROM api_energe WHERE vehicleNo IN( SELECT vehicleNo FROM t_vehicleinfo b
+-INNER JOIN t_mauth_dept c ON b.deptId = c.lineDeptId    ";
++SELECT miles, stat_date AS stat_date FROM api_energe WHERE vehicleNo IN";
++        $sql1 = "SELECT vehicleNo FROM t_vehicleinfo b INNER JOIN t_mauth_dept c ON b.deptId = c.lineDeptId";
+ 
+ // 用作 limit, 只有在时间为今年的时候有
+         $currentMonth = intval(DATE('n'));
+@@ -11903,8 +12884,8 @@ INNER JOIN t_mauth_dept c ON b.deptId = c.lineDeptId    ";
+                 $sql = "SELECT IFNULL(cnt,0) AS cnt , DATE_FORMAT(`month`,'%m月') AS stat_date FROM
+  (
+ SELECT SUM(miles) AS cnt, stat_date FROM (
+-SELECT miles, DATE_FORMAT(stat_date,'%Y-%m-01') AS stat_date FROM api_energe WHERE vehicleNo IN( SELECT vehicleNo FROM t_vehicleinfo b 
+-INNER JOIN t_mauth_dept c ON b.deptId = c.lineDeptId ";
++SELECT miles, DATE_FORMAT(stat_date,'%Y-%m-01') AS stat_date FROM api_energe WHERE vehicleNo IN";
++                $sql1 = "SELECT vehicleNo FROM t_vehicleinfo b INNER JOIN t_mauth_dept c ON b.deptId = c.lineDeptId";
+                 $dataconditon = " stat_date>=CURRENT_DATE() - interval day(CURRENT_DATE())-1 day - interval month(CURRENT_DATE()) -1 month and stat_date< CURRENT_DATE() ";
+                 // 为显示 到当前月的 每月数据
+                 $fixed .= "RIGHT JOIN (SELECT @a:=@a+INTERVAL 1 MONTH AS MONTH FROM t_monthfortrend  a  INNER JOIN
+@@ -11914,30 +12895,64 @@ INNER JOIN t_mauth_dept c ON b.deptId = c.lineDeptId ";
+                 $sql = "SELECT IFNULL(cnt,0) AS cnt , DATE_FORMAT(`month`,'%m月') AS stat_date FROM
+  (
+ SELECT SUM(miles) AS cnt, stat_date FROM (
+-SELECT miles, DATE_FORMAT(stat_date,'%Y-%m-01') AS stat_date FROM api_energe WHERE vehicleNo IN( SELECT vehicleNo FROM t_vehicleinfo b 
+-INNER JOIN t_mauth_dept c ON b.deptId = c.lineDeptId ";
++SELECT miles, DATE_FORMAT(stat_date,'%Y-%m-01') AS stat_date FROM api_energe WHERE vehicleNo IN";
++                $sql1 = " SELECT vehicleNo FROM t_vehicleinfo b INNER JOIN t_mauth_dept c ON b.deptId = c.lineDeptId ";
+                 $dataconditon = " stat_date>=CURRENT_DATE() - interval day(CURRENT_DATE())-1 day - interval month(CURRENT_DATE()) -1 month - interval 1 year and 
+                 stat_date< CURRENT_DATE() - interval day(CURRENT_DATE())-1 day - interval month(CURRENT_DATE()) -1 month";
+                 // 为显示  每月数据
+                 $fixed .= "RIGHT JOIN (SELECT @a:=@a+INTERVAL 1 MONTH AS MONTH FROM t_monthfortrend  a  INNER JOIN
+ (SELECT @a:=CURRENT_DATE() - INTERVAL DAY(CURRENT_DATE())-1 DAY - INTERVAL MONTH(CURRENT_DATE())  MONTH -interval 1 year )c)d ON  b.stat_date=d.month";
+                 break;
+-
+         }
+ 
+ // 如果用户等级不是 顶级 则
+         if ($deptlevel != null) {
++            /*   if ($deptid != null && $depttype != null) {
++                   $fixedCondtion = " where $deptlevel=$id and $depttype = '$deptid'  $motorCondtion) ";
++               } else {
++                   $fixedCondtion = " where $deptlevel=$id $motorCondtion) ";
++               };*/
+             if ($deptid != null && $depttype != null) {
+-                $fixedCondtion = " where $deptlevel=$id and $depttype = '$deptid'  $motorCondtion) ";
++                $fixedCondtion = " where $deptlevel=$id and $depttype = '$deptid'  $motorCondtion";
+             } else {
+-                $fixedCondtion = " where $deptlevel=$id $motorCondtion) ";
++                $fixedCondtion = " where $deptlevel=$id $motorCondtion ";
+             };
+-            //
+-            $sql .= $fixedCondtion . " and " . $dataconditon . $fixed;
+ 
++            $sql1 = $sql1 . $fixedCondtion;
++
++            $result = DB::select($sql1);
+ 
++            if (empty($result)) {
++                if (empty($arrtime)) {
++                    for ($i = 1; $i <= 12; $i++) {
++                        $arrtime[] = $i . '月';
++                    }
++                }
++                foreach ($arrtime as $key => $val) {
++                    $result[] = 0;
++                }
++                $data[0] = $arrtime;
++                $data[1] = $result;
++                return $this->setJsonResponse(REPEAT, $data);
++            }
++            $str = '(';
++            foreach ($result as $k => $v) {
++                $str .= "'" . $v->vehicleNo . "',";
++            }
++            if (strlen($str) != 1) {
++                $str = substr($str, 0, strlen($str) - 1);
++            }
++            $str .= ")";
++            $sql .= $str . " and " . $dataconditon . $fixed;
++            // $sql .= $fixedCondtion . " and " . $dataconditon . $fixed;
+             $records = DB::select($sql);
++
+             if (empty($records)) {
++                if (empty($arrtime)) {
++                    for ($i = 1; $i <= 12; $i++) {
++                        $arrtime[] = $i . '月';
++                    }
++                }
+                 foreach ($arrtime as $key => $val) {
+                     $records[] = 0;
+                 }
+@@ -11948,12 +12963,10 @@ INNER JOIN t_mauth_dept c ON b.deptId = c.lineDeptId ";
+ 
+             $cnt = count($records);
+             $arr1 = array();
+-
+             for ($i = 0; $i < $cnt; $i++) {
+                 $arr1[1][$i] = $records[$i]->cnt;
+                 $arr1[0][$i] = $records[$i]->stat_date;
+             }
+-
+             if (isset($arrtime)) {
+ 
+                 $arr3[0] = $arrtime;
+@@ -11977,15 +12990,33 @@ INNER JOIN t_mauth_dept c ON b.deptId = c.lineDeptId ";
+ 
+ 
+         };
++        /*  if ($deptid != null && $depttype != null) {
++              $fixedCondtion = " where  $depttype = '$deptid' $motorCondtion) ";
++          } else {
++              $fixedCondtion = " where 1=1 $motorCondtion)";
++          };*/
+         if ($deptid != null && $depttype != null) {
+-            $fixedCondtion = " where  $depttype = '$deptid' $motorCondtion) ";
++            $fixedCondtion = " where  $depttype = '$deptid' $motorCondtion";
+         } else {
+-            $fixedCondtion = " where 1=1 $motorCondtion)";
++            $fixedCondtion = " where 1=1 $motorCondtion";
+         };
+         //
+-        $sql .= $fixedCondtion . " and " . $dataconditon . $fixed;
+-
++        $sql1 = $sql1 . $fixedCondtion;
+ 
++        $result = DB::select($sql1);
++        if (empty($result)) {
++            return $this->setJsonResponse(REPEAT, $result);
++        };
++        $str = '(';
++        foreach ($result as $k => $v) {
++            $str .= "'" . $v->vehicleNo . "',";
++        }
++        if (strlen($str) != 1) {
++            $str = substr($str, 0, strlen($str) - 1);
++        }
++        $str .= ")";
++        /* $sql .= $fixedCondtion . " and " . $dataconditon . $fixed;*/
++        $sql .= $str . " and " . $dataconditon . $fixed;
+         $records = DB::select($sql);
+         if (empty($records)) {
+             return $this->setJsonResponse(REPEAT, $records);
+@@ -12193,6 +13224,23 @@ INNER JOIN v_lineinfo c ON b.deptId = c.lineDeptId  ";
+         return $this->setJsonResponse(SUCCESS, $arr1);
+     }
+ 
++    /**
++     *API: api/statistic/getNotRunConditionOnTrend
++     * @name: 非运营空调开启
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: motorType,description:车辆类型
++     *parameter2: depttype,description:机构类型
++     *parameter3: deptid,description:机构ID
++     *parameter4: page,description:页码
++     *parameter5: count,description:行数
++     *parameter6: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getNotRunConditionOnTrend(\Illuminate\Http\Request $request)
+     {
+ // 针对司机
+@@ -12383,12 +13431,10 @@ INNER JOIN t_mauth_dept c ON b.deptId = c.lineDeptId    ";
+                 }
+                 $arr1 = $arr3;
+             }
+-
+             foreach ($arr1[1] as $key => $value) {
+                 $arr1[1][$key] = round($arr1[1][$key] / 3600, 2);
+             }
+ 
+-
+             return $this->setJsonResponse(SUCCESS, $arr1);
+         };
+         if ($deptid != null && $depttype != null) {
+@@ -12442,6 +13488,23 @@ INNER JOIN t_mauth_dept c ON b.deptId = c.lineDeptId    ";
+ 
+     }
+ 
++    /**
++     *API: api/statistic/getConditionOnTrend
++     * @name: 空调开启时长趋势图
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: motorType,description:车辆类型
++     *parameter2: depttype,description:机构类型
++     *parameter3: deptid,description:机构ID
++     *parameter4: page,description:页码
++     *parameter5: count,description:行数
++     *parameter6: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getConditionOnTrend(\Illuminate\Http\Request $request)
+     {
+ // 针对司机
+@@ -12462,7 +13525,7 @@ INNER JOIN t_mauth_dept c ON b.deptId = c.lineDeptId    ";
+                 break;
+             case 1:
+                 $deptlevel = "companyDeptId";
+-                $id = $dept['dept_id'];
++                $id = $dept['dept_id'];//479
+                 break;
+             case 2:
+                 $deptlevel = "subCompanyDeptId";
+@@ -12603,7 +13666,6 @@ INNER JOIN t_mauth_dept c ON b.deptId = c.lineDeptId    ";
+ 
+ 
+             $records = DB::select($sql);
+-
+             if (empty($records)) {
+                 return $this->setJsonResponse(REPEAT, $records);
+             };
+@@ -12631,10 +13693,10 @@ INNER JOIN t_mauth_dept c ON b.deptId = c.lineDeptId    ";
+                 }
+                 $arr1 = $arr3;
+             }
++
+             foreach ($arr1[1] as $key => $value) {
+                 $arr1[1][$key] = round($arr1[1][$key] / 3600, 2);
+             }
+-
+             return $this->setJsonResponse(SUCCESS, $arr1);
+         };
+         if ($deptid != null && $depttype != null) {
+@@ -12793,7 +13855,24 @@ FROM (select batterytotalvolt,buscurrent,time,vehicledeviceid from
+ 
+     }
+ 
+-
++    /**
++     *API: api/statistic/getChaoSuDetail
++     * @name: 违规取证
++     * @author:
++     * @edittime:
++     * @mode: post
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: page,description:页码
++     *parameter2: count,description:行数
++     *parameter3: vehicleNo,description:车牌号
++     *parameter4: startTime,description:开始时间
++     *parameter5: endTime,description:结束时间
++     *parameter6: site,description:地点
++     *parameter7: violationType,description:违规类型
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getChaoSuDetail(\Illuminate\Http\Request $request)
+     {
+         Mauth\User::find(Auth::user()->user_id)
+@@ -13000,7 +14079,18 @@ FROM (select batterytotalvolt,buscurrent,time,vehicledeviceid from
+     }
+ 
+ 
+-// 获取时间
++    /**
++     *API: api/statistic/getChartoOrTrendTime
++     * @name: 获取时间
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: timeType,description:时间类型
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getChartoOrTrendTime(\Illuminate\Http\Request $request)
+     {
+         // 确定时间参数
+@@ -13053,6 +14143,18 @@ FROM (select batterytotalvolt,buscurrent,time,vehicledeviceid from
+         return $this->setJsonResponse(SUCCESS, $arr1);
+     }
+ 
++    /**
++     *API: api/statistic/getTime
++     * @name: 获取北京时间
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getTime(\Illuminate\Http\Request $request)
+     {
+ 
+@@ -13221,6 +14323,17 @@ FROM (select batterytotalvolt,buscurrent,time,vehicledeviceid from
+         return $arr1;
+     }
+ 
++    /**
++     *API: api/statistic/getOneLine
++     * @name: 获取默认选中路线
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getOneLine(\Illuminate\Http\Request $request)
+     {
+ // 针对司机
+@@ -13271,6 +14384,18 @@ FROM (select batterytotalvolt,buscurrent,time,vehicledeviceid from
+ 
+     }
+ 
++    /**
++     *API: api/statistic/getDeviceid
++     * @name: 获取车辆deviceID=>vehicleNo 列表
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: vehicleNo,description:车牌号
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getDeviceid(\Illuminate\Http\Request $request)
+     {
+ // 针对司机
+@@ -13300,7 +14425,18 @@ FROM (select batterytotalvolt,buscurrent,time,vehicledeviceid from
+         return $this->setJsonResponse(SUCCESS, $arr);
+     }
+ 
+-    // 车辆基本信息 for 概况
++    /**
++     *API: api/statistic/getCarBasicInfo
++     * @name: 车辆基本信息 for 概况
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: deptid,description:机构ID
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getCarBasicInfo(\Illuminate\Http\Request $request)
+     {
+ 
+@@ -13749,7 +14885,20 @@ SELECT SUM(totalNum) AS total , driverId AS driverId,1 as stat_date FROM stat_dr
+         return $data;
+     }
+ 
+-// 故障整体趋势图
++    /**
++     *API: api/statistic/getAlarmNoTypeTrend
++     * @name: 故障整体趋势图
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: deptid,description:机构ID
++     *parameter2: depttype,description:机构类型
++     *parameter3: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getAlarmNoTypeTrend(\Illuminate\Http\Request $request)
+     {
+ // 针对司机
+@@ -14009,6 +15158,18 @@ SELECT SUM(totalNum) AS total , driverId AS driverId,1 as stat_date FROM stat_dr
+ 
+     }
+ 
++    /**
++     *API: api/statistic/getSingleVehicleInfo
++     * @name: 单车分析-获取车辆基本信息
++     * @author:
++     * @edittime:
++     * @mode: post
++     *
++     * @param:
++     *parameter1: vehicleNo,description:车牌号
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getSingleVehicleInfo()
+     {//todo 异常开门次数
+ 
+@@ -14216,8 +15377,8 @@ SELECT SUM(totalNum) AS total , driverId AS driverId,1 as stat_date FROM stat_dr
+             $userid = -1;
+         } else {
+             $userid = $userid->companyDeptId;
+-            $tableHead = DB::table('driving_violation_type')->where('deptid', '=', $userid)
+-                ->select('violationName', 'violationeName')->get();
++            $tableHead = DB::table('driving_violation_type_new')->where('deptid', '=', $userid)
++                ->select('violationName', 'violationeName')->groupBy('violationeName')->get();
+             if (empty($tableHead)) {
+                 $userid = -1;
+             }
+@@ -14490,7 +15651,21 @@ DeviceId IN (SELECT deviceid FROM t_vehicleinfo a INNER JOIN t_mauth_dept b ON a
+         return $this->setJsonResponse(SUCCESS, $records);
+     }
+ 
+-    //添加偏移量getAverageSpeedforHourNew，getAverageSpeedforHourNew（每天就偏移量）
++    /**
++     *API: api/statistic/getAverageSpeedforHourNew
++     * @name: 平均车速 添加偏移量getAverageSpeedforHourNew，getAverageSpeedforHourNew（每天就偏移量）
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: motorType,description:车辆类型
++     *parameter2: depttype,description:机构类型
++     *parameter3: deptid,description:机构ID
++     *parameter4: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getAverageSpeedforHourNew(\Illuminate\Http\Request $request)
+     {
+         $dept = Mauth\User::find(Auth::user()->user_id)
+@@ -14673,6 +15848,17 @@ DeviceId IN (SELECT deviceid FROM t_vehicleinfo a INNER JOIN t_mauth_dept b ON a
+ 
+     }
+ 
++    /**
++     *API: api/statistic/getVehicleInfoSystemType
++     * @name: 明细报表-标签数据
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     * @return: array
++     * @throws: \App\Exception\ParamException
++     */
+     public function getVehicleInfoSystemType(\Illuminate\Http\Request $request)
+     {
+ 
+@@ -14709,6 +15895,22 @@ DeviceId IN (SELECT deviceid FROM t_vehicleinfo a INNER JOIN t_mauth_dept b ON a
+         return $arrData;
+     }
+ 
++    /**
++     *API: api/statistic/alarmChartMake
++     * @name: 故障系统图表
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: depttype,description:查询类型
++     *parameter2: deptid,description:查询ID
++     *parameter3: dataType  ,description:数据类型
++     *parameter4: bigSystemType  ,description:故障类型
++     *parameter5: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function alarmChartMake(\Illuminate\Http\Request $request)
+     {
+         $dept['level'] = 0;
+@@ -15021,6 +16223,35 @@ DeviceId IN (SELECT deviceid FROM t_vehicleinfo a INNER JOIN t_mauth_dept b ON a
+         return json_decode(($ret[0]->data), TRUE);
+     }
+ 
++    /**
++     *API: api/statistic/exportSystemAlarm
++     * @name: 导出故障信息
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: count,description:行数
++     *parameter2: findkey,description:查询键
++     *parameter3: findVal,description:查询值
++     *parameter4: startDate,description:开始时间
++     *parameter5: endDate,description:结束时间
++     *parameter6: findKeyEqual1,description:查询键
++     *parameter7: findValEqual1,description:查询值
++     *parameter8: depttype,description:机构类型
++     *parameter9: deptid,description:机构ID
++     *parameter10: bigSystemType,description:大系统类型
++     *parameter11: systemType,description:系统类型
++     *parameter12: timeType,description:时间类型
++     *parameter13: findKey4,description:查询键
++     *parameter14: findKey5,description:查询键
++     *parameter15: findVal4,description:查询值
++     *parameter16: findVal5,description:查询值
++     *parameter17: deptKey,description:组织键
++     *parameter18: deptVal,description:组织值
++     * @return: Excel
++     * @throws: \App\Exception\ParamException
++     */
+     public function exportSystemAlarm(\Illuminate\Http\Request $request)
+     {
+ 
+@@ -15167,6 +16398,22 @@ DeviceId IN (SELECT deviceid FROM t_vehicleinfo a INNER JOIN t_mauth_dept b ON a
+         })->export('xlsx');
+     }
+ 
++    /**
++     *API: api/statistic/getSystemAlarm
++     * @name: 故障系统表格
++     * @author:
++     * @edittime:
++     * @mode: post
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: deptid,description:机构ID
++     *parameter2: depttype,description:机构类型
++     *parameter3: page,description:页码
++     *parameter4: count,description:行数
++     *parameter5: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getSystemAlarm(\Illuminate\Http\Request $request)
+     {
+         $records = $this->getSystemAlarmData($request);
+@@ -15417,7 +16664,6 @@ DeviceId IN (SELECT deviceid FROM t_vehicleinfo a INNER JOIN t_mauth_dept b ON a
+             $systemType = $params['systemType'];
+             $systemType = $this->systemConvertCode("systemType", $systemType);
+         };
+-
+         $alarmType = '%';
+         if (isset($params['alarmType'])) {
+             $alarmType = $params['alarmType'];
+@@ -15521,7 +16767,7 @@ DeviceId IN (SELECT deviceid FROM t_vehicleinfo a INNER JOIN t_mauth_dept b ON a
+             return $data;
+         };
+         if ($deptid != null && $depttype != null) {
+-            $sql .= " where  $depttype = '$deptid' ";
++            $sql .= " where $depttype = '$deptid' ";
+         } else {
+             $sql .= " where 1=1 ";
+         };
+@@ -15547,6 +16793,18 @@ DeviceId IN (SELECT deviceid FROM t_vehicleinfo a INNER JOIN t_mauth_dept b ON a
+         return $data;
+     }
+ 
++    /**
++     *API: api/statistic/getAlarmFenLei
++     * @name: 获取报警分类信息
++     * @author:
++     * @edittime:
++     * @mode: post
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: alarmtypeid,description:故障类型ID
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getAlarmFenLei(\Illuminate\Http\Request $request)
+     {
+         $rules = [
+@@ -15562,6 +16820,19 @@ DeviceId IN (SELECT deviceid FROM t_vehicleinfo a INNER JOIN t_mauth_dept b ON a
+         return $ret;
+     }
+ 
++    /**
++     *API: api/statistic/getSystemAlarmFenbu
++     * @name: 故障系统表格分布
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: vehicleNo,description:车牌号
++     *parameter2: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getSystemAlarmFenbu(\Illuminate\Http\Request $request)
+     {
+ 
+@@ -15676,6 +16947,21 @@ DeviceId IN (SELECT deviceid FROM t_vehicleinfo a INNER JOIN t_mauth_dept b ON a
+         return $records;
+     }
+ 
++    /**
++     *API: api/statistic/getSiteViolationTrends
++     * @name: 站点统计趋势图
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: depttype,description:机构类型
++     *parameter2: deptid,description:机构ID
++     *parameter3: actiontypeDesc,description:查询类型
++     *parameter4: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getSiteViolationTrends(\Illuminate\Http\Request $request)
+     {
+         // 需要改回，
+@@ -15933,10 +17219,26 @@ INNER JOIN v_lineinfo c ON b.deptId = c.lineDeptId    ";
+             $arr1 = $arr3;
+         }
+ 
+-
+         return $this->setJsonResponse(SUCCESS, $arr1);
+     }
+ 
++    /**
++     *API: api/statistic/getSiteViolationDeptRank
++     * @name: 站点车辆统计 机构排名
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: deptid,description:机构ID
++     *parameter2: depttype,description:机构类型
++     *parameter3: page,description:页码
++     *parameter4: count,description:行数
++     *parameter5: actiontypeDesc,description:站点违规类型
++     *parameter6: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getSiteViolationDeptRank(\Illuminate\Http\Request $request)
+     {
+ 
+@@ -16067,7 +17369,7 @@ INNER JOIN v_lineinfo c ON b.deptId = c.lineDeptId    ";
+                 }
+                 break;
+         }
+-        $fixedcondition = "and actiontypedesc='$actiontypeDesc' AND begin_site<>-1 GROUP BY vehicleNo  ) a 
++        $fixedcondition = "and actiontypedesc='$actiontypeDesc' AND begin_site<>-1 GROUP BY begin_site,end_site,vehicleNo  ) a 
+ INNER JOIN  t_mauth_dept b ON a.deptId=b.lineDeptId INNER JOIN t_siteinfo c ON c.siteId=a.begin_site LEFT JOIN t_siteinfo d ON d.siteId=a.end_site  GROUP BY begin_site,end_site,vehicleNo ) z INNER JOIN (SELECT @r:=0)r order by total desc ) n  ";
+         if ($deptlevel != null) {
+             if ($deptid != null && $depttype != null) {
+@@ -16138,7 +17440,6 @@ INNER JOIN  t_mauth_dept b ON a.deptId=b.lineDeptId INNER JOIN t_siteinfo c ON c
+                 $records[$i]->$siteorluduan = $records[$i]->begin_site;
+             }
+         }
+-
+         $data = [
+             'current_page' => $page,
+             'from' => $offset + 1,
+@@ -16153,6 +17454,23 @@ INNER JOIN  t_mauth_dept b ON a.deptId=b.lineDeptId INNER JOIN t_siteinfo c ON c
+         return $data;
+     }
+ 
++    /**
++     *API: api/statistic/getSiteViolationSiteRank
++     * @name: 站点统计 机构排名
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: deptid,description:机构ID
++     *parameter2: depttype,description:机构类型
++     *parameter3: page,description:页码
++     *parameter4: count,description:行数
++     *parameter5: actiontypeDesc,description:站点违规类型
++     *parameter6: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getSiteViolationSiteRank(\Illuminate\Http\Request $request)
+     {
+ 
+@@ -16380,6 +17698,19 @@ INNER JOIN  t_mauth_dept b ON a.deptId=b.lineDeptId INNER JOIN t_siteinfo c ON c
+         return $data;
+     }
+ 
++    /**
++     *API: api/statistic/getDriverViolationFenbu
++     * @name: 驾驶员违规分布
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: driverName,description:驾驶员姓名
++     *parameter2: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getDriverViolationFenbu(\Illuminate\Http\Request $request)
+     {
+         $rules = [
+@@ -16398,6 +17729,20 @@ INNER JOIN  t_mauth_dept b ON a.deptId=b.lineDeptId INNER JOIN t_siteinfo c ON c
+ 
+     }
+ 
++    /**
++     *API: api/statistic/getSiteViolationCount
++     * @name: 站点违规统计
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: deptId,description:机构ID
++     *parameter2: deptType,description:机构类型
++     *parameter3: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getSiteViolationCount(\Illuminate\Http\Request $request)
+     {
+         // 需要改回，
+@@ -16892,10 +18237,10 @@ and bigsysc is null "));
+                 $endTime = date('Y-m-d', strtotime("$startTime +1 year"));
+                 break;
+             case 6:
++                // last year
+                 if (isset($startdate) && isset($enddate)) {
+                     $startTime = $startdate;
+                     $endTime = $enddate;
+-
+                 }
+                 break;
+             default:
+@@ -16905,15 +18250,18 @@ and bigsysc is null "));
+     }
+ 
+     /**
+-     * @Description 根据条件获取系统分类
+-     * @Param
+-     * @Return
+-     * @Author  bhl
+-     * @Date 2019/3/20 17:44
++     *API: api/statistic/getSystemFenLei
++     * @name: 根据条件获取系统分类
++     * @author: bhl
++     * @edittime: 2019/3/20 17:44
+      * @remark 该系统分类来自报警类型表，某些大系统分类不同，例如主动安全 与 主动安全系统
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
+      */
+-    public
+-    function getSystemFenLei(\Illuminate\Http\Request $request)
++    public function getSystemFenLei(\Illuminate\Http\Request $request)
+     {
+         $sql = "SELECT parenttype FROM t_vehiclealarmtype WHERE parenttype IS NOT NULL GROUP BY parenttype ";
+         $records = DB::select($sql);
+@@ -16936,16 +18284,26 @@ and bigsysc is null "));
+         return $ret;
+     }
+ 
+-
+-    /**
+-     * @Description 根据条件获取故障详细
+-     * @Param
+-     * @Return
+-     * @Author zhangzhufu
+-     * @Date 2019/2/22 16:58
++    /**API: api/statistic/getBreakCarDetail
++     * @name: 根据条件获取故障详细
++     * @author: zhangzhufu
++     * @edittime: 2019/2/22 16:58
++     * @mode: post
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: page,description:当前页
++     *parameter2: count,description:每页显示数据数量
++     *parameter3: deptid,description:线路id
++     *parameter4: depttype,description:查询类型
++     *parameter5: alarmLevel,description:故障等级
++     *parameter6: breaktype,description:查询类型(动力总成、电器总成、底盘系统、辅助系统)
++     *parameter7: sortKey,description:排序字段
++     *parameter8: sortVal,description:排序类型（asc，desc)
++     *parameter9: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
+      */
+-    public
+-    function getBreakCarDetail(\Illuminate\Http\Request $request)
++    public function getBreakCarDetail(\Illuminate\Http\Request $request)
+     {
+         $records = $this->getRecordsfromBreakCarDetail($this->params);//分页
+         $records = $this->addDeptHeader('t_break_car_detail', $records, $this->params);//添加中英文表头
+@@ -16960,8 +18318,7 @@ and bigsysc is null "));
+      * @Author zhangzhufu
+      * @Date 2019/2/22 16:04
+      */
+-    public
+-    function getRecordsfromBreakCarDetail($params)
++    public function getRecordsfromBreakCarDetail($params)
+     {
+         $count = isset($params['count']) ? $params['count'] : 8;
+         $page = isset($params['page']) ? $params['page'] : 1;
+@@ -17116,8 +18473,7 @@ and bigsysc is null "));
+      * @Author zhangzhufu
+      * @Date 2019/2/22 17:19
+      */
+-    public
+-    function exportAllSystemAlarm(\Illuminate\Http\Request $request)
++    public function exportAllSystemAlarm(\Illuminate\Http\Request $request)
+     {
+         $this->predo('system_alarm', 'system_alarm', 27);
+         \Log::info("故障分析 统计查询全部");
+@@ -17273,8 +18629,7 @@ and bigsysc is null "));
+      * @Author zhangzhufu
+      * @Date 2019/2/22 17:32
+      */
+-    public
+-    function getAllSystemAlarmRecords($params)
++    public function getAllSystemAlarmRecords($params)
+     {
+         $timeType = isset($params['timeType']) ? $params['timeType'] : 0;
+         $breakDowntableName = "api_breakdowns";
+@@ -17375,8 +18730,7 @@ and bigsysc is null "));
+      * @Author zhangzhufu
+      * @Date 2019/3/14 21:29
+      */
+-    public
+-    function getAllVehicleSystems_old()
++    public function getAllVehicleSystems_old()
+     {
+         $companySign = "dongguan";
+         $dept = Mauth\User::find(Auth::user()->user_id)
+@@ -17471,14 +18825,19 @@ and bigsysc is null "));
+     }
+ 
+     /**
+-     * @Description 获取系统大小分类,修改为来自t_vehiclesystemtypeinfo
+-     * @Param
+-     * @Return
+-     * @Author zhangzhufu
+-     * @Date 2019/3/14 21:29
++     *API: api/statistic/getAllVehicleSystems
++     * @name: 获取系统大小分类,修改为来自t_vehiclesystemtypeinfo
++     * @author: zhangzhufu
++     * @edittime: 2019/3/14 21:29
++     * @mode: post
++     *
++     * @param:
++     *parameter1: vehicleId,description:车辆ID
++     *parameter2: companyDeptId,description:公司ID
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
+      */
+-    public
+-    function getAllVehicleSystems()
++    public function getAllVehicleSystems()
+     {
+         $companySign = "dongguan";
+         $dept = Mauth\User::find(Auth::user()->user_id)
+@@ -17576,14 +18935,20 @@ and bigsysc is null "));
+     }
+ 
+     /**
+-     * @Description 根据小分类获取模拟量/状态量/报警量
+-     * @Param
+-     * @Return
+-     * @Author zhangzhufu
+-     * @Date 2019/3/14 21:32
++     *API: api/statistic/getAnalogStateAlarmBySmallSystemEn
++     * @name: 根据小分类获取模拟量/状态量/报警量
++     * @author: zhangzhufu
++     * @edittime: 2019/3/14 21:32
++     * @mode: post
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: subSystemEn,description:查询类型
++     *parameter2: vehicleId,description:车辆ID
++     *parameter3: vehicleNo,description:车牌号
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
+      */
+-    public
+-    function getAnalogStateAlarmBySmallSystemEn()
++    public function getAnalogStateAlarmBySmallSystemEn()
+     {
+         $dept = Mauth\User::find(Auth::user()->user_id)
+             ->getUserDept()->first();
+@@ -17666,6 +19031,7 @@ and bigsysc is null "));
+         }
+         if ($parentSystemEn == null) return $this->setJsonResponse(REPEAT, "分系统不存在");
+         $categoryFieldParentJson = $categoryFieldJson->$parentSystemEn->{"sub"}->$subSystemEnParam;
++
+         //返回必有三种类型
+         $varResult["analog"] = array();
+         $varResult["alarm"] = array();
+@@ -17696,8 +19062,7 @@ and bigsysc is null "));
+      * @Author zhangzhufu
+      * @Date 2019/3/18 10:45
+      */
+-    private
+-    function getCassandraData($params, $ids, $columns)
++    private function getCassandraData($params, $ids, $columns)
+     {
+         $session = $this->getCassandraSession();
+         $vehicleDeviceIds = explode(",", $ids);
+@@ -17761,8 +19126,7 @@ and bigsysc is null "));
+      * @Author zhangzhufu
+      * @Date 2019/3/16 17:59
+      */
+-    public
+-    function getDataTransferTaskInfoList()
++    public function getDataTransferTaskInfoList()
+     {
+         $rules = [
+             'page' => 'required',
+@@ -17807,8 +19171,7 @@ and bigsysc is null "));
+      * @Author zhangzhufu
+      * @Date 2019/3/16 17:58
+      */
+-    public
+-    function addDataTransferTaskInfo()
++    public function addDataTransferTaskInfo()
+     {
+         //小系统英文名称
+         $rules = [
+@@ -17892,8 +19255,7 @@ and bigsysc is null "));
+      * @Author zhangzhufu
+      * @Date 2019/3/16 17:59
+      */
+-    public
+-    function getDataTransferTaskInfoByProKey()
++    public function getDataTransferTaskInfoByProKey()
+     {
+         $rules = [
+             'taskId' => 'required'
+@@ -17946,8 +19308,7 @@ and bigsysc is null "));
+      * @Author zhangzhufu
+      * @Date 2019/3/16 17:59
+      */
+-    public
+-    function updateDataTransferTaskInfoByProKey()
++    public function updateDataTransferTaskInfoByProKey()
+     {
+         // TODO
+     }
+@@ -17959,8 +19320,7 @@ and bigsysc is null "));
+      * @Author zhangzhufu
+      * @Date 2019/3/16 17:59
+      */
+-    public
+-    function overDataTransferTaskInfoByProKey()
++    public function overDataTransferTaskInfoByProKey()
+     {
+         $rules = [
+             'taskId' => 'required'
+@@ -18088,6 +19448,28 @@ and bigsysc is null "));
+         }
+     }
+ 
++    /**
++     *API: api/statistic/getAlarmSummaryAll
++     * @name: 行车报警汇总数据获取
++     * @author:
++     * @edittime:
++     * @mode: post
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: bigType,description:高级查询-故障类型
++     *parameter2: type,description:高级查询-报警类型
++     *parameter3: page,description:当前页
++     *parameter4: count,description:每页显示数据数量
++     *parameter5: startdate,description:高级查询-开始时间
++     *parameter6: enddate,description:高级查询-结束时间
++     *parameter7: findKeyEqual,description:数据类型（vehicleNo 车辆，lineName 线路）
++     *parameter8: findValEqual,description:数据名称（B1号线，车辆车牌号）
++     *parameter9: sortKey,description:排序字段
++     *parameter10: sortVal,description:排序类型（asc，desc)
++     *parameter11: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public function getAlarmSummaryAll(\Illuminate\Http\Request $request)
+     {
+         $dept = Mauth\User::find(Auth::user()->user_id)
+@@ -18131,9 +19513,10 @@ and bigsysc is null "));
+             foreach ($result as $val) {
+                 $typeArr[] = $val->alarmtypename;
+             }
+-
+         }
+-        if (isset($this->params['timeType']) && $this->params['timeType'] == -1) {
++        $lineDeptId = DB::table("v_vehicleinfo")->select("lineDeptId")->distinct()->where($this->params['findKeyEqual1'],$this->params['findValEqual1'])->first();
++        if (isset($this->params['timeType']) && $this->params['timeType'] == -1 ||
++            (isset($this->params['startdate']) && date("Y-m-d") == $this->params['startdate'] && $this->params['startdate'] == $this->params['enddate'])) {
+             $select = DB::table('api_breakdowns_day')
+                 ->join('v_vehicleinfo', 'api_breakdowns_day.vehicleNo', '=', 'v_vehicleinfo.vehicleNo')
+                 ->selectRaw(' companyName,companyDeptId,subCompanyName,subCompanyDeptId,groupName,groupDeptId,lineName,lineDeptId,
+@@ -18151,37 +19534,107 @@ and bigsysc is null "));
+                 $select = $select->whereIn('api_breakdowns_day.alarmtypename', $typeArr);
+             }
+             $select = $select->groupBy('v_vehicleinfo.vehicleId')->groupBy('api_breakdowns_day.alarmtypename');
+-
+-
++            $ret = $this->filterPagination($this->params, $select);
+         } else {
+-            $select = DB::table('api_breakdowns')
+-                ->join('v_vehicleinfo', 'api_breakdowns.vehicleNo', '=', 'v_vehicleinfo.vehicleNo')
+-                ->selectRaw(' companyName,companyDeptId,subCompanyName,subCompanyDeptId,groupName,groupDeptId,lineName,lineDeptId,
+-                        v_vehicleinfo.vehicleNo,deviceId,
+-                        case motorType when 1 then \'燃油车\' when 2 then \'电车\' when 3 then \'油电混合动力车\' when 4 then \'燃气车\' when 5 then \'气电混合动力车\' end as motorType ,
+-                       alarmtypename as alarmType,SUM(total) as total,date_format(NOW(),\'%Y-%c-%d %h:00:00\' ) AS time')
+-                ->where('v_vehicleinfo.' . $this->params['findKeyEqual1'], '=', $this->params['findValEqual1']);
++            /* $select = DB::table('api_breakdowns')
++                 ->join('v_vehicleinfo', 'api_breakdowns.vehicleNo', '=', 'v_vehicleinfo.vehicleNo')
++                 ->selectRaw(' companyName,companyDeptId,subCompanyName,subCompanyDeptId,groupName,groupDeptId,lineName,lineDeptId,
++                         v_vehicleinfo.vehicleNo,deviceId,
++                         case motorType when 1 then \'燃油车\' when 2 then \'电车\' when 3 then \'油电混合动力车\' when 4 then \'燃气车\' when 5 then \'气电混合动力车\' end as motorType ,
++                        alarmtypename as alarmType,SUM(total) as total,date_format(NOW(),\'%Y-%c-%d %h:00:00\' ) AS time')
++                 ->where('v_vehicleinfo.' . $this->params['findKeyEqual1'], '=', $this->params['findValEqual1']);*/
++
++            //原SQL api_breakdowns未走索引，新逻辑加入api_breakdowns.deptId线路ID走索引
++            //原SQL whereIn(报警类型名称),新逻辑将WhereIn改为Right on走索引
++            $sql1 = "SELECT
++                                        companyName,
++                                        companyDeptId,
++                                        subCompanyName,
++                                        subCompanyDeptId,
++                                        groupName,
++                                        groupDeptId,
++                                        lineName,
++                                        lineDeptId,
++                                        v_vehicleinfo.vehicleNo,
++                                        deviceId,
++                                        CASE
++                                        motorType 
++                                        WHEN 1 THEN
++                                        '燃油车' 
++                                        WHEN 2 THEN
++                                        '电车' 
++                                        WHEN 3 THEN
++                                        '油电混合动力车' 
++                                        WHEN 4 THEN
++                                        '燃气车' 
++                                        WHEN 5 THEN
++                                        '气电混合动力车' 
++                                        END AS motorType,
++                                       `api_breakdowns`.alarmtypename AS alarmType,
++                                        SUM( total ) AS total,
++                                        date_format( NOW( ), '%Y-%c-%d %h:00:00' ) AS time 
++                                        FROM
++                                        `api_breakdowns`";
++            if (isset($this->params['bigType']) && $this->params['bigType'] != null && $this->params['bigType'] != '' && $this->params['bigType'] != 'all') {
++                $sql2 = " RIGHT JOIN (SELECT alarmtypename FROM `t_vehiclealarmtype` where type='$bigtType'
++                    union all
++                SELECT alarmtypename FROM `t_vehiclealarmtype2` where type='$bigtType'
++                    union ALL
++                SELECT alarmtypename FROM `t_vehiclealarmtype3` where type='$bigtType') AS tv ON `api_breakdowns`.alarmtypename = tv.alarmtypename ";
++                $sql1 = $sql1 . $sql2;
++            }
++            $sql2 = "INNER JOIN `v_vehicleinfo` ON `api_breakdowns`.`vehicleNo` = `v_vehicleinfo`.`vehicleNo` where `v_vehicleinfo`.`".$this->params['findKeyEqual1']."`= '".$this->params['findValEqual1']."' and `api_breakdowns`.deptId = ". $lineDeptId->lineDeptId;
++            $sql1 = $sql1 . $sql2;
+ 
+-            if (!is_null($deptType) && !is_null($id)) $select = $select->where($deptType, '=', $id);
++            if (!is_null($deptType) && !is_null($id)) $sql1 = $sql1 ." and ".$deptType." = ". $id;
+             if (isset($this->params['type']) && $this->params['type'] != null && $this->params['type'] != '' && $this->params['type'] != 'all') {
+-                $select = $select->where('alarmtypename', '=', $this->params['type']);
++                $sql1 = $sql1." and `api_breakdowns`.alarmtypename = '". $this->params['type']."' ";
+             }
+-            if ($typeArr != [] && count($typeArr) != 0) {
++            /* if (!is_null($deptType) && !is_null($id)) $select = $select->where($deptType, '=', $id);*/
++            /* if (isset($this->params['type']) && $this->params['type'] != null && $this->params['type'] != '' && $this->params['type'] != 'all') {
++                 $select = $select->where('alarmtypename', '=', $this->params['type']);
++             }*/
++            /* if ($typeArr != [] && count($typeArr) != 0) {
+ 
+-                $select = $select->whereIn('api_breakdowns.alarmtypename', $typeArr);
+-            }
+-            $select = $select->groupBy('v_vehicleinfo.vehicleId')->groupBy('api_breakdowns.alarmtypename');
++                 $select = $select->whereIn('api_breakdowns.alarmtypename', $typeArr);
++             }*/
++
++            /*$select = $select->groupBy('v_vehicleinfo.vehicleId')->groupBy('api_breakdowns.alarmtypename');*/
+ 
+             if (isset($this->params['timeType'])) {
+                 $startdate = isset($this->params['startdate']) ? $this->params['startdate'] : null;
+                 $enddate = isset($this->params['enddate']) ? $this->params['enddate'] : null;
+                 $time = $this->getdataByTime($this->params['timeType'], $startdate, $enddate);
+-                $select = $select->where('stat_date', '>=', $time[0])
+-                    ->where('stat_date', '<=', $time[1]);
+-            }
++                $sql2 = " AND `stat_date` >= '".$time[0]."' AND `stat_date` <= '".$time[1]."'";
++                $sql1 = $sql1 . $sql2;
++                /*$select = $select->where('stat_date', '>=', $time[0])
++                    ->where('stat_date', '<=', $time[1]);*/
++            }
++            $sql2 = " GROUP BY `v_vehicleinfo`.`vehicleId`,`api_breakdowns`.`alarmtypename`";
++            $sql1 = $sql1 . $sql2;
++            $countSql = "select count(*) as count from (".$sql1.") as a";
++            if(isSet($this->params['page']) && isSet($this->params['count'])){
++                $page = $this->params['page'];
++                $count = $this->params['count'];
++                $offset = $count * ($page - 1) <= 0 ? 0 : $count * ($page - 1);
++                $sql1 .= " limit ".$offset.",".$count;
++            }
++            $select = DB::select($sql1);
++            $selectCount = DB::select($countSql);
++            $ret = [
++                'current_page' => $page,
++                'from' => $offset + 1,
++                'next_page_url' => '',
++                'prev_page_url' => '',
++                'per_page' => $count,
++                'to' => $offset + $count,
++                'total' => $selectCount[0]->count,
++                'last_page' => (int)ceil($selectCount[0]->count / $count),
++                'data' => $select
++            ];
+         }
+ 
+-        $ret = $this->filterPagination($this->params, $select);
++        //$ret = $this->filterPagination($this->params, $select);
+ 
+         $records = $this->addDeptHeader('v_vehicleinfo_alarmSumAll', $ret, $this->params);//添加中英文表头
+ 
+@@ -18189,8 +19642,24 @@ and bigsysc is null "));
+         return $ret;
+     }
+ 
+-    public
+-    function getAllAlarmSummary(\Illuminate\Http\Request $request)
++    /**
++     *API: api/statistic/getAllAlarmSummary
++     * @name: 故障统计详情
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param: \Illuminate\Http\Request $request
++     *parameter1: findKeyEqual1,description:查询键
++     *parameter2: findValEqual1,description:查询值
++     *parameter3: page,description:页码
++     *parameter4: count,description:行数
++     *parameter5: summaryType,description:故障类型
++     *parameter6: timeType,description:时间类型，0=昨天，-1=今天，1=近7天，2=本月
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
++    public function getAllAlarmSummary(\Illuminate\Http\Request $request)
+     {
+         $rules = [
+             'summaryType' => 'required|in:0,1',
+@@ -18232,13 +19701,33 @@ and bigsysc is null "));
+         return $ret;
+     }
+ 
++    /**
++     *API: api/statistic/exportAlarmSummaryAll
++     * @name: 导出全部报警信息
++     * @author:
++     * @edittime:
++     * @mode: get
++     *
++     * @param:
++     *parameter1: bigType,description:大系统类型
++     *parameter2: count,description:行数
++     *parameter3: findKeyEqual1,description:查询键
++     *parameter4: sortKey,description:排序键
++     *parameter5: sortVal,description:排序值
++     *parameter6: findValEqual1,description:查询值
++     *parameter7: type,description:类型
++     *parameter8: timeType,description:时间类型
++     *parameter9: page,description:页码
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
+     public
+     function exportAlarmSummaryAll(\Illuminate\Http\Request $request)
+     {
+         $dept = Mauth\User::find(Auth::user()->user_id)
+             ->getUserDept()->first();
+-        $id = 1;
+-        $deptType = 1;
++        $id = null;
++        $deptType = null;
+         switch ($dept['level']) {
+             case 0:
+                 break;
+@@ -18294,8 +19783,8 @@ and bigsysc is null "));
+             if ($typeArr != [] && count($typeArr) != 0) {
+                 $select = $select->whereIn('api_breakdowns_day.alarmtypename', $typeArr);
+             }
++            if (!is_null($deptType) && !is_null($id)) $select = $select->where($deptType, '=', $id);
+             $select = $select
+-                ->where($deptType, '=', $id)
+                 ->groupBy('v_vehicleinfo.vehicleId')->groupBy('api_breakdowns_day.alarmtypename');
+         } else {
+             $tablename = "api_breakdowns";
+@@ -18316,15 +19805,14 @@ and bigsysc is null "));
+             if ($typeArr != [] && count($typeArr) != 0) {
+                 $select = $select->whereIn($tablename . '.alarmtypename', $typeArr);
+             }
++            if (!is_null($deptType) && !is_null($id)) $select = $select->where($deptType, '=', $id);
+             $select = $select
+-                ->where($deptType, '=', $id)
+                 ->groupBy('v_vehicleinfo.vehicleId')->groupBy($tablename . '.alarmtypename');
+ 
+             if (isset($this->params['timeType'])) {
+                 $startdate = isset($this->params['startdate']) ? $this->params['startdate'] : null;
+                 $enddate = isset($this->params['enddate']) ? $this->params['enddate'] : null;
+                 $time = $this->getdataByTime($this->params['timeType'], $startdate, $enddate);
+-
+                 $select = $select->where('stat_date', '>=', $time[0])
+                     ->where('stat_date', '<=', $time[1]);
+             }
+@@ -18463,5 +19951,247 @@ and bigsysc is null "));
+         })->export('xlsx');
+     }
+ 
++    /**
++     *API: api/statistic/editWeeklyreportDate
++     * @name: 修改考核周期配置日期
++     * @author: zhuangzichen
++     * @edittime: 2020/09/22
++     * @mode: get
++     *
++     * @param:
++     * parameter1: dayOfMonth,description:日期
++     * parameter2: companyDeptId,description:总公司名称
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
++    public function editWeeklyreportDate(\Illuminate\Http\Request $request)
++    {
++        $rules = [
++            'dayOfMonth' => 'required',
++            'companyDeptId' => 'required'
++        ];
++        $this->apiParamVerify($rules);
++        $user_id = Auth::user()->user_id;
++        $companyDeptId = $this->params['companyDeptId'];
++        $newDayOfMonth = $this->params['dayOfMonth'];
++        $oldDayOfMonth = DB::table("weeklyreport_config")->select("dayOfMonth")->where("companyDeptId", $companyDeptId)->first();
++        try {
++            if (!empty($oldDayOfMonth)) {
++                DB::table("weeklyreport_config")->where("companyDeptId", $companyDeptId)->update(["dayOfMonth" => $newDayOfMonth]);
++                DB::table("config_log")->insert(['deptId' => $companyDeptId, 'time' => date("Y-m-d"), 'history' => $oldDayOfMonth->dayOfMonth, 'update' => $newDayOfMonth, 'changefield' => 'dayOfMonth', 'tableName' => 'weeklyreport_config', 'user_id' => $user_id]);
++                DB::commit();
++            } else {
++                $default = DB::table("weeklyreport_config")->select("dayOfMonth","alarmLevel")->where("companyDeptId",-1)->first();
++                DB::table("weeklyreport_config")->insert(['companyDeptId' => $companyDeptId, 'dayOfMonth' => $newDayOfMonth,'alarmLevel' => $default->alarmLevel]);
++                DB::table("config_log")->insert(['deptId' => $companyDeptId, 'time' => date("Y-m-d"), 'history' => $default->dayOfMonth, 'update' => $newDayOfMonth, 'changefield' => 'dayOfMonth', 'tableName' => 'weeklyreport_config', 'user_id' => $user_id]);
++                DB::commit();
++            }
++        } catch (\Exception $e) {
++            $ret = $this->setJsonResponse(0, ['msg' => $e->getMessage()]);
++            DB::rollBack();
++            return $ret;
++        }
+ 
++        $ret = $this->setJsonResponse(1, true);
++        return $ret;
++    }
++    /**
++     *API: api/statistic/queryWeeklyreportDate
++     * @name: 查询考核周期配置历史记录
++     * @author: zhuangzichen
++     * @edittime: 2020/09/22
++     * @mode: get
++     *
++     * @param:
++     * parameter1: startDate,description:开始时间
++     * parameter2: endDate,description:结束时间
++     * parameter3: findKey,description:查询键
++     * parameter4: findVal,description:查询值
++     * parameter5: page,description:当前页
++     * parameter6: count,description:每页显示数量
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
++    public function queryWeeklyreportDate(\Illuminate\Http\Request $request)
++    {
++        $rules = [
++            'startDate' => 'required',
++            'endDate' => 'required',
++            'findKey' => 'required',
++            'findVal' => 'required'
++        ];
++        $this->apiParamVerify($rules);
++
++        $startDate = $this->params['startDate'];
++        $endDate = $this->params['endDate'];
++        $findKey = $this->params['findKey'];
++        $findVal = $this->params['findVal'];
++        $companyDeptIdArray = DB::table("t_mauth_dept")->where($findKey,$findVal)->select("companyDeptId")->first();
++        $companyDeptId = $companyDeptIdArray->companyDeptId;
++        $sql = "select username,real_name,cl.time as 'time',cl.history as 'history',cl.`update` as 'update',mr.`name` as 'rolename',md.`name` as 'companyname'
++                                    from config_log cl
++                                    INNER JOIN mauth_user mu on cl.user_id = mu.user_id
++                                    INNER JOIN mauth_user_role r on r.user_id = cl.user_id
++                                    INNER JOIN mauth_role mr on mr.role_id = r.role_id
++                                    INNER JOIN mauth_dept md on md.dept_id = cl.deptId
++                                    where deptId = '" . $companyDeptId . "'
++                                    and time >= '" . $startDate . "'
++                                    and time <= '" . $endDate . "' 
++                                    and tableName = 'weeklyreport_config'";
++
++        $totalSql = "select count(*) as total from (".$sql.") as a";
++
++        if (isSet($this->params['page']) && isSet($this->params['count'])) {
++            $page = $this->params['page'];
++            $count = $this->params['count'];
++            $offset = $count * ($page - 1) <= 0 ? 0 : $count * ($page - 1);
++            $sql .= " limit " . $offset . "," . $count;
++        }
++        $result = DB::select($sql);
++        $totalArray = DB::select($totalSql);
++        $total = $totalArray[0]->total;
++        $data = [
++            'current_page' => $page,
++            'from' => $offset + 1,
++            'next_page_url' => '',
++            'prev_page_url' => '',
++            'per_page' => $count,
++            'to' => $offset + $count,
++            'total' => $total,
++            'last_page' => (int)ceil($total / $count),
++            'data' => $result
++        ];
++        $records = $this->addDeptHeader('weeklyreportDateHistory', $data, $this->params);//添加中英文表头
++
++        return $this->setJsonResponse(SUCCESS, $records);
++    }
++
++    /**
++     *API: api/statistic/queryWeeklyreportDateByCompanyDeptId
++     * @name: 查询考核周期配置根据公司ID
++     * @author: zhuangzichen
++     * @edittime: 2020/09/23
++     * @mode: get
++     *
++     * @param:
++     * parameter1: companyDeptId,description:总公司名称
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
++    public function queryWeeklyreportDateByCompanyDeptId(\Illuminate\Http\Request $request)
++    {
++        $rules = [
++            'companyDeptId' => 'required'
++        ];
++        $this->apiParamVerify($rules);
++
++        $companyDeptId = $this->params['companyDeptId'];
++
++        $dayOfMonth = DB::table("weeklyreport_config")->select("dayOfMonth")->where("companyDeptId",$companyDeptId)->first();
++
++        if($dayOfMonth == null){
++            $default = DB::table("weeklyreport_config")->select("dayOfMonth")->where("companyDeptId",-1)->first();
++            return $this->setJsonResponse(SUCCESS, ["dayOfMonth" => $default]);
++        }else{
++            return $this->setJsonResponse(SUCCESS, $dayOfMonth);
++        }
++    }
++
++
++
++    /**
++     *API: api/statistic/queryReport
++     * @name: 查询周报，月报，年报列表及详情
++     * @author: bhlo
++     * @edittime: 2020/09/16
++     * @mode: get
++     * @param:
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
++    public function queryReportLists(\Illuminate\Http\Request $request)
++    {
++
++        $rules = [
++            'startTime' => 'required',
++            'deptId' => 'required',
++            'reportType' => 'required'
++        ];
++        $this->apiParamVerify($rules);
++        $deptId = $this->params['deptId'];
++        $reportType = $this->params['reportType'];
++        $startTime = $this->params['startTime'];
++//        $page = 1;
++//        $count = 8;
++//        if (isset($this->params['page']) && isset($this->params['count'])) {
++//            $page = $this->params['page'];
++//            $count = $this->params['count'];
++//        }
++//        $offset = $count * ($page - 1) <= 0 ? 0 : $count * ($page - 1);
++
++        $endTime = isset($this->params['endTime']) ? $this->params['endTime'] : null;
++        $deptLevel = DB::table("mauth_dept")->where("dept_id", "=", $deptId)->selectRaw("level")->first();
++        if (!isset($deptLevel->level) || $deptLevel->level < 1) return "此机构不存在";
++        $selectRaw = null;
++        $deptType = null;
++        switch ($deptLevel->level) {
++            case 1:  //companyDeptId
++                $selectRaw = "concat( GROUP_CONCAT(DISTINCT companyDeptId),',',GROUP_CONCAT( DISTINCT subCompanyDeptId),',',GROUP_CONCAT( DISTINCT groupDeptId),',',GROUP_CONCAT(DISTINCT lineDeptId)) as deptId";
++                $deptType = "companyDeptId";
++                break;
++            case 2:  // subCompanyDeptId
++                $selectRaw = "concat(GROUP_CONCAT( DISTINCT subCompanyDeptId),',',GROUP_CONCAT( DISTINCT groupDeptId),',',GROUP_CONCAT(DISTINCT lineDeptId)) as deptId";
++                $deptType = "subCompanyDeptId";
++                break;
++            case 3:  // groupDeptId
++                $selectRaw = "concat(GROUP_CONCAT( DISTINCT groupDeptId),',',GROUP_CONCAT(DISTINCT lineDeptId)) as deptId";
++                $deptType = "groupDeptId";
++                break;
++            case 4: // lineDeptId
++                $selectRaw = "concat(GROUP_CONCAT(DISTINCT lineDeptId)) as deptId";
++                $deptType = "lineDeptId";
++                break;
++        }
++        $deptStr = DB::table("t_mauth_dept")->where($deptType, "=", $deptId)->selectRaw($selectRaw)->first();
++        $deptIdList = explode(",", $deptStr->deptId);
++        $info = DB::table("weeklyreport")->where("startTime", "like", "%$startTime%");
++        if (isset($endTime)) {
++            $info = $info->where("endTime", "like", "%$endTime%");
++        }
++        $info = $info->whereIn("deptId", $deptIdList)->where("reportType", $reportType);
++        $data=$info->get();
++//        $total=$info;
++//        $total= $total->count();
++//        $info=$info->offset($offset)->limit($count)->get();
++//        $data = [
++//            'current_page' => $page,
++//            'from' => $offset + 1,
++//            'next_page_url' => '',
++//            'prev_page_url' => '',
++//            'per_page' => $count,
++//            'to' => $offset + $count,
++//            'total' => $total,
++//            'last_page' => (int)ceil($total / $count),
++//            'data' => $info
++//        ];
++        return $this->setJsonResponse(SUCCESS, $data);
++    }
++
++    /**
++     *API: api/statistic/queryDrivingcurveSystemtypeinfo
++     * @name: 行车曲线获取系统大小分类以及小分类中的模拟量/状态量
++     * @author: zhuangzichen
++     * @edittime: 2020/09/16
++     * @mode: get
++     *
++     * @param:
++     * @return: \Illuminate\Http\JsonResponse|mixed
++     * @throws: \App\Exception\ParamException
++     */
++    public function queryDrivingcurveSystemtypeinfo(){
++        $result = DB::table("t_drivingcurve_systemtypeinfo")->select("classify_analog_state")->where("id",1)->first();
++        $recode = json_decode($result->classify_analog_state);
++        $ret = $this->setJsonResponse(SUCCESS, $recode);
++        return $ret;
++    }
+ }
+\ No newline at end of file
